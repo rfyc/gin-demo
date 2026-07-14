@@ -1,10 +1,10 @@
 package router
 
 import (
-	"ginext/src/api/router/middleware"
-	"ginext/src/api/v1/home"
-	"ginext/src/core"
-	"ginext/src/core/conf"
+	"gin-demo/src/api/router/middleware"
+	"gin-demo/src/api/v1/home"
+	"gin-demo/src/core"
+	"gin-demo/src/core/conf"
 
 	"github.com/gin-gonic/gin"
 )

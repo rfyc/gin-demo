@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"ginext/src/core/conf"
+	"gin-demo/src/core/conf"
 	"time"
 
 	"gorm.io/driver/mysql"

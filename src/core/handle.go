@@ -2,7 +2,7 @@ package core
 
 import (
 	"context"
-	"ginext/src/pkg/response"
+	"gin-demo/src/pkg/response"
 	"reflect"
 
 	"github.com/gin-gonic/gin"

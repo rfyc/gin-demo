@@ -2,7 +2,7 @@ package conf
 
 import (
 	"fmt"
-	"ginext/src/pkg/logger"
+	"gin-demo/src/pkg/logger"
 	"os"
 	"path/filepath"
 	"strings"

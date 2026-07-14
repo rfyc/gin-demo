@@ -2,10 +2,10 @@ package core
 
 import (
 	"fmt"
-	"ginext/src/core/cache"
-	"ginext/src/core/conf"
-	"ginext/src/core/db"
-	"ginext/src/pkg/logger"
+	"gin-demo/src/core/cache"
+	"gin-demo/src/core/conf"
+	"gin-demo/src/core/db"
+	"gin-demo/src/pkg/logger"
 )
 
 var (

@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"ginext/src/api/router"
-	"ginext/src/core"
-	"ginext/src/pkg/logger"
+	"gin-demo/src/api/router"
+	"gin-demo/src/core"
+	"gin-demo/src/pkg/logger"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +20,7 @@ func main() {
 	if conf == "" {
 		conf = os.Getenv("CFG_PATH")
 	}
+
 	if err := core.Init(conf); err != nil {
 		log.Fatalf("core.Init FAIL: %v", err)
 	}

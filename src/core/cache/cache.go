@@ -2,7 +2,7 @@ package cache
 
 import (
 	"fmt"
-	"ginext/src/core/conf"
+	"gin-demo/src/core/conf"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
