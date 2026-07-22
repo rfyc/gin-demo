@@ -1,14 +1,8 @@
 package utils
 
 import (
-	"archive/zip"
 	"bytes"
-	"context"
-	"encoding/base64"
 	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -19,85 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
 	"golang.org/x/net/publicsuffix"
 )
 
-// base64格式的图文 写入本地文件
-func Base64ImageToLocal(base64Content string, localDir string) (string, error) {
-	// 去掉Base64前缀，如 "data:image/png;base64,"
-	if strings.Contains(base64Content, ",") {
-		base64Content = strings.Split(base64Content, ",")[1]
-	}
-	// 解码Base64字符串
-	imgData, err := base64.StdEncoding.DecodeString(base64Content)
-	if err != nil {
-		return "", fmt.Errorf("decode Base64 fail: %w", err)
-	}
-	// 创建一个Reader，从解码后的字节数组读取数据
-	reader := strings.NewReader(string(imgData))
-	// 解析图像
-	img, format, err := image.Decode(reader)
-	if err != nil {
-		return "", fmt.Errorf("decode image fail: %w", err)
-	}
-	// 根据当前时间生成唯一的文件名
-	localFile := filepath.Join(localDir, fmt.Sprintf("%v.%s", uuid.NewString(), format))
-	// 创建输出文件
-	outputFile, err := CreateFile(localFile)
-	if err != nil {
-		return "", fmt.Errorf("create local file fail: %w", err)
-	}
-	defer outputFile.Close()
-	// 将图像写入文件（根据实际情况选择合适的编码器）
-	switch strings.ToLower(format) {
-	case "jpeg", "jpg":
-		err = jpeg.Encode(outputFile, img, nil)
-	case "png":
-		err = png.Encode(outputFile, img)
-	default:
-		return "", fmt.Errorf("image format fail: %s", format)
-	}
-	if err != nil {
-		return "", fmt.Errorf("encode image fail: %w", err)
-	}
-	return filepath.Abs(localFile)
-}
-
 // 返回文件扩展名 例: .png
 func FileDotExt(fileUrl string) (ext string) {
 	return "." + FileExt(fileUrl)
-}
-
-// FileUrlToLocalFile 保存远程文件到本地 localFile: tmp/123/****不用带文件后缀 保存到 {getwd}/tmp/123/****.png
-func FileUrlToLocalFile(ctx context.Context, fileUrl string, localFile string) (string, error) {
-	var ext string
-	if path, err := url.Parse(fileUrl); err != nil {
-		return "", fmt.Errorf("url.Parse - %s - fail: %w", fileUrl, err)
-	} else {
-		ext = filepath.Ext(path.Path)
-	}
-	localFile = localFile + ext
-	file, err := CreateFile(localFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "create.file")
-	}
-	defer file.Close()
-	resp, err := http.Get(fileUrl)
-	if err != nil {
-		return "", errors.Wrapf(err, "http.get.url")
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("failed to download image: status code %d", resp.StatusCode)
-	}
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return "", errors.Wrapf(err, "file.write.body")
-	}
-	return localFile, nil
 }
 
 // CreateFile 创建文件，如果文件已存在则覆盖，如果文件不存在则创建，如果路径不存在则创建路径
@@ -122,7 +45,7 @@ func CreateFile(filePath string) (file *os.File, err error) {
 
 // IsExist 判断文件或文件夹是否存在
 func IsExist(path string) (isExist bool) {
-	if _, err := os.Stat(path); os.IsExist(err) {
+	if _, err := os.Stat(path); err == nil {
 		return true
 	}
 	return
@@ -222,55 +145,6 @@ func IsHttpsURI(httpsURI string) bool {
 	}
 }
 
-// CheckURLTypeIsWebpage 综合判断URL类型是否为网页
-func CheckURLTypeIsWebpage(urlStr string) bool {
-	// 首先根据扩展名快速判断
-	ext := strings.ToLower(path.Ext(urlStr))
-
-	// 文档扩展名列表
-	docExts := map[string]bool{
-		".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
-		".ppt": true, ".pptx": true, ".txt": true, ".rtf": true, ".csv": true,
-		".json": true, ".xml": true, ".epub": true, ".mobi": true,
-	}
-
-	// 网页扩展名列表
-	webExts := map[string]bool{
-		".html": true, ".htm": true, ".php": true, ".asp": true, ".aspx": true,
-		".jsp": true,
-	}
-
-	if docExts[ext] {
-		return false
-	}
-
-	if webExts[ext] {
-		return true
-	}
-
-	// 无扩展名，检查URL结构
-	parsedURL, err := url.Parse(urlStr)
-	if err != nil {
-		return false
-	}
-
-	path := parsedURL.Path
-
-	// 如果路径为空或以斜杠结尾，很可能是网页
-	if path == "" || strings.HasSuffix(path, "/") {
-		return true
-	}
-
-	// 包含查询参数，可能是动态网页
-	if parsedURL.RawQuery != "" {
-		return true
-	}
-
-	// 其他情况，默认为文档（保守策略）
-	// 或者可以根据业务需求调整为"unknown"或"webpage"
-	return false
-}
-
 // ReadFileUrl 从给定的URL读取文件内容。
 // 参数:
 //
@@ -335,34 +209,6 @@ func DownloadFile(url, filePath string) (err error) {
 	return
 }
 
-func GetRemoteFileMimeType(fileURL string) (string, error) {
-	if mimeType, err := getRemoteFileMimeType(fileURL); err == nil {
-		return mimeType, nil
-	}
-	if ext := FileDotExt(fileURL); ext != "" {
-		if mimeType, ok := CommonMimeTypes[ext]; ok {
-			return mimeType, nil
-		}
-	}
-	return "", fmt.Errorf("not found file mime type: %s", fileURL)
-}
-
-func getRemoteFileMimeType(fileURL string) (string, error) {
-	var detectSize = 512
-	var resp, err = http.Get(fileURL)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	// 只读取前 512 字节，不下载整个文件
-	var buf = make([]byte, detectSize)
-	var n, err1 = io.ReadFull(resp.Body, buf)
-	if err1 != nil && err1 != io.ErrUnexpectedEOF && err1 != io.EOF {
-		return "", err1
-	}
-	return http.DetectContentType(buf[:n]), nil
-}
-
 func IsFile(path string) bool {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
@@ -388,220 +234,6 @@ func FileBase(filePath string) (base string) {
 	return
 }
 
-// ZipDirectory 压缩指定目录，返回压缩后的文件名和错误信息
-func ZipDirectory(sourceDir string) (string, error) {
-	// 创建目标zip文件名（与目录同名，后缀为.zip）
-	zipFileName := filepath.Base(sourceDir) + ".zip"
-
-	// 创建zip文件
-	zipFile, err := os.Create(zipFileName)
-	if err != nil {
-		return "", fmt.Errorf("创建zip文件失败: %v", err)
-	}
-	defer zipFile.Close()
-
-	// 创建zip writer
-	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
-
-	// 遍历目录并压缩文件
-	err = filepath.Walk(sourceDir, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// 创建文件头信息
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		// 设置文件头中的名称（保持相对路径）
-		relPath, err := filepath.Rel(sourceDir, filePath)
-		if err != nil {
-			return err
-		}
-		header.Name = relPath
-
-		// 如果是目录，添加路径分隔符
-		if info.IsDir() {
-			header.Name += "/"
-		} else {
-			// 设置压缩方法
-			header.Method = zip.Deflate
-		}
-
-		// 创建zip文件中的条目
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		// 如果是文件，写入内容
-		if !info.IsDir() {
-			file, err := os.Open(filePath)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-			_, err = io.Copy(writer, file)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		// 如果出错，删除可能已创建的部分zip文件
-		_ = os.Remove(zipFileName)
-		return "", fmt.Errorf("压缩过程中出错: %v", err)
-	}
-
-	return zipFileName, nil
-}
-
-// Unzip 解压zip文件
-func Unzip(zipFile, destDir string) error {
-	// 打开zip文件
-	r, err := zip.OpenReader(zipFile)
-	if err != nil {
-		return fmt.Errorf("open zip file fail: %w", err)
-	}
-	defer r.Close()
-
-	// 创建目标目录
-	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
-		return fmt.Errorf("create dest dir fail: %w", err)
-	}
-
-	// 遍历zip文件中的所有文件
-	for _, f := range r.File {
-		// 构建目标文件路径
-		targetPath := filepath.Join(destDir, f.Name)
-
-		// 检查文件路径是否安全（防止路径遍历攻击）
-		if !strings.HasPrefix(targetPath, filepath.Clean(destDir)+string(os.PathSeparator)) {
-			return fmt.Errorf("invalid file path: %s", f.Name)
-		}
-
-		// 如果是目录，创建目录
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, f.Mode()); err != nil {
-				return fmt.Errorf("create dir fail: %w", err)
-			}
-			continue
-		}
-
-		// 创建父目录
-		if err := os.MkdirAll(filepath.Dir(targetPath), os.ModePerm); err != nil {
-			return fmt.Errorf("create parent dir fail: %w", err)
-		}
-
-		// 打开源文件
-		source, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("open source file fail: %w", err)
-		}
-
-		// 创建目标文件
-		dest, err := CreateFile(targetPath)
-		if err != nil {
-			source.Close()
-			return fmt.Errorf("create dest file fail: %w", err)
-		}
-
-		// 复制文件内容
-		if _, err := io.Copy(dest, source); err != nil {
-			source.Close()
-			dest.Close()
-			return fmt.Errorf("copy file content fail: %w", err)
-		}
-
-		// 关闭文件
-		source.Close()
-		dest.Close()
-	}
-
-	return nil
-}
-
-// GetPDFCover 使用ghostscript获取PDF首页作为封面图
-func GetPDFCover(ctx context.Context, inputPath string) (outOssUrl string, err error) {
-	if !IsFile(inputPath) {
-		return "", fmt.Errorf("input file not exist: %s", inputPath)
-	}
-	if FileExt(inputPath) != "pdf" {
-		return "", fmt.Errorf("input file not pdf: %s", inputPath)
-	}
-
-	// 生成临时图片路径
-	var outputPath = fmt.Sprintf("/tmp/%s.png", uuid.NewString())
-
-	// 使用ghostscript将PDF首页转换为PNG图片
-	cmd := exec.Command("gs", "-dBATCH",
-		"-dNOPAUSE",
-		"-dNOCACHE",
-		"-sDEVICE=png16m", // 使用PNG格式，16m表示24位真彩色
-		"-dFirstPage=1",   // 只转换第一页
-		"-dLastPage=1",
-		"-dGraphicsAlphaBits=4", // 抗锯齿
-		"-dTextAlphaBits=4",
-		"-r300x300", // 分辨率300DPI
-		"-sOutputFile="+outputPath,
-		inputPath)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("ghostscript exec FAIL: %w - output: %s", err, string(output))
-	}
-	return outputPath, nil
-}
-
-// GetFilenameWithoutExt 获取不含后缀的文件名
-func GetFilenameWithoutExt(filename string) string {
-	// 获取不含后缀的文件名
-	base := filepath.Base(filename)
-	ext := filepath.Ext(base)
-	nameWithoutExt := base[:len(base)-len(ext)]
-
-	return nameWithoutExt
-}
-
-func WgetFileUrl(fileUrl string, echoProcess ...bool) (localFile string, err error) {
-	var targetDir = "/tmp/"
-	if strings.Contains(fileUrl, "x-oss-process") {
-		if urlPath, _ := FileUrlNoQuery(fileUrl); urlPath != "" {
-			fileUrl = urlPath
-		}
-	}
-
-	localFile, _ = FileUrlBaseName(fileUrl)
-	localFile = filepath.Join(targetDir, uuid.NewString()+"_"+localFile)
-	var command = fmt.Sprintf(`mkdir -p %s && wget --no-use-server-timestamps --timeout=60 --tries=2 -O "%s" "%s"`, targetDir, localFile, fileUrl)
-	//if err, _, _ = ExecCommand(command); err != nil {
-	//	return "", fmt.Errorf("wget down file FAIL: %w", err)
-	//}
-	err = ExecCommandWithProgress(
-		command,
-		func(step int, total int, cmd string, stdoutLine string, stderrLine string) {
-			if len(echoProcess) > 0 && echoProcess[0] {
-				fmt.Printf("[进度 %d/%d] 命令: %s\n", step, total, cmd)
-
-				if stdoutLine != "" {
-					fmt.Printf("  STDOUT: %s\n", stdoutLine)
-				}
-				if stderrLine != "" {
-					fmt.Printf("  STDERR: %s\n", stderrLine)
-				}
-			}
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("wget down file FAIL: %w", err)
-	}
-	return localFile, nil
-}
-
 func FileUrlNoQuery(rawURL string) (string, error) {
 	// 解析 URL
 	parsedURL, err := url.Parse(rawURL)
@@ -613,6 +245,7 @@ func FileUrlNoQuery(rawURL string) (string, error) {
 	// 返回没有查询参数的 URL
 	return parsedURL.String(), nil
 }
+
 func FileUrlBaseName(rawURL string) (string, error) {
 	// 解析 URL
 	parsedURL, err := url.Parse(rawURL)
@@ -653,59 +286,6 @@ func ExecCommand(commandStrs string) (err error, stdout, stderr string) {
 	return nil, stdout, stderr
 }
 
-func ExecCommandWithProgress(commandStrs string, progress func(step int, total int, cmd string, stdoutLine string, stderrLine string)) (err error) {
-	commands := strings.Split(commandStrs, "&&")
-	total := len(commands)
-
-	for idx, commandStr := range commands {
-		command, err := shellwords.Parse(commandStr)
-		if err != nil {
-			return fmt.Errorf("解析命令失败: %v", err)
-		}
-		if len(command) == 0 {
-			return fmt.Errorf("命令数组不能为空")
-		}
-
-		cmd := exec.Command(command[0], command[1:]...)
-
-		// 创建管道以实时读取输出
-		stdoutPipe, _ := cmd.StdoutPipe()
-		stderrPipe, _ := cmd.StderrPipe()
-
-		if err = cmd.Start(); err != nil {
-			return fmt.Errorf("命令启动失败: %v", err)
-		}
-
-		// 实时读取 stdout/stderr
-		go func() {
-			buf := make([]byte, 1024)
-			for {
-				n, _ := stdoutPipe.Read(buf)
-				if n == 0 {
-					break
-				}
-				progress(idx+1, total, strings.Join(command, " "), string(buf[:n]), "")
-			}
-		}()
-
-		go func() {
-			buf := make([]byte, 1024)
-			for {
-				n, _ := stderrPipe.Read(buf)
-				if n == 0 {
-					break
-				}
-				progress(idx+1, total, strings.Join(command, " "), "", string(buf[:n]))
-			}
-		}()
-
-		if err = cmd.Wait(); err != nil {
-			return fmt.Errorf("命令执行失败: %v", err)
-		}
-	}
-	return nil
-}
-
 // WriteToFile 将文本写入文件，如果目录不存在则创建
 func WriteToFile(filename, content string) error {
 	// 确保目录存在
@@ -729,26 +309,53 @@ func WriteToFile(filename, content string) error {
 	return nil
 }
 
-// AddToFile 将文本写入文件，如果目录不存在则创建
-func AddToFile(filename, content string) error {
-	// 确保目录存在
-	dir := filepath.Dir(filename)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("创建目录失败: %v", err)
+// FindConfigFile 查找配置文件路径
+// 支持多种路径格式：
+//   - /config/local/conf.yaml  : 会自动从当前目录向上查找
+func FindConfigFile(cmdArg string) string {
+	// 如果路径为空，直接返回
+	if cmdArg == "" {
+		return ""
 	}
-
-	// 创建或打开文件（追加模式）
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("打开文件失败: %v", err)
+	// 清理路径格式：去掉开头的 / 或 ./
+	cleanPath := cleanPathPrefix(cmdArg)
+	// 首先检查原始路径是否存在（处理 ../ 开头的相对路径）
+	if IsExist(cmdArg) {
+		if abs, err := filepath.Abs(cmdArg); err == nil {
+			return abs
+		}
+		return cmdArg
 	}
-	defer file.Close()
+	// 尝试从当前目录向上查找
+	return findUpward(cleanPath)
+}
 
-	// 写入内容
-	_, err = file.WriteString(content)
-	if err != nil {
-		return fmt.Errorf("写入文件失败: %v", err)
+// cleanPathPrefix 清理路径开头的 / 或 ./
+func cleanPathPrefix(path string) string {
+	// 去掉开头的 /
+	if strings.HasPrefix(path, "/") {
+		path = strings.TrimPrefix(path, "/")
 	}
+	// 去掉开头的 ./
+	if strings.HasPrefix(path, "./") {
+		path = strings.TrimPrefix(path, "./")
+	}
+	return path
+}
 
-	return nil
+// findUpward 从当前目录向上查找指定的相对路径
+// 返回找到的路径，如果未找到返回空字符串
+func findUpward(relativePath string) string {
+	for i := 0; i <= 5; i++ {
+		var searchPath string
+		if i == 0 {
+			searchPath = relativePath
+		} else {
+			searchPath = strings.Repeat("../", i) + relativePath
+		}
+		if IsExist(searchPath) {
+			return searchPath
+		}
+	}
+	return ""
 }

@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"gin-demo/src/api/router"
 	"gin-demo/src/core"
 	"gin-demo/src/pkg/logger"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,21 +13,14 @@ import (
 	"time"
 )
 
-func main() {
-	flag.StringVar(&conf, "conf", "", "配置文件路径")
-	flag.Parse()
-	if conf == "" {
-		conf = os.Getenv("CFG_PATH")
-	}
+var configFile string
 
-	if err := core.Init(conf); err != nil {
-		log.Fatalf("core.Init FAIL: %v", err)
-	}
+func main() {
+
 	defer core.Cleanup()
 
 	ctx := context.Background()
 	cfg := core.Conf.Server
-
 	srv := &http.Server{
 		Addr:         cfg.Addr,
 		Handler:      router.New(cfg),

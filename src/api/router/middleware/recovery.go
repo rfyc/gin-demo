@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"artist/application/pkg/logger"
-	"artist/application/pkg/response"
+	"gin-demo/src/pkg/logger"
+	"gin-demo/src/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )

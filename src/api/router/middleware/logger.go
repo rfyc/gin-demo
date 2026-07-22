@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"artist/application/pkg/logger"
+	"gin-demo/src/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )

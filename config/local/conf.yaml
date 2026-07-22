@@ -1,0 +1,24 @@
+Env: LOCAL
+
+Server:
+  mode: debug
+  addr: ":8088"
+  readTimeout: 600s
+  writeTimeout: 600s
+  idleTimeout: 60s
+  grace: false
+
+Log:
+  path: ./log/artist.log
+  level: DEBUG
+
+Mysql:
+  reader: "operation_rw:deAf965b741440fAA45d474e2486d79e@tcp(dbproxy.gong-ying-yan-fa-bu.mysql-zhongtai-test.rw.local.db.tal.com:2700)/storybuddies?charset=utf8mb4&parseTime=true&timeout=300s&loc=Local"
+  writer: "operation_rw:deAf965b741440fAA45d474e2486d79e@tcp(dbproxy.gong-ying-yan-fa-bu.mysql-zhongtai-test.rw.local.db.tal.com:2700)/storybuddies?charset=utf8mb4&parseTime=true&timeout=300s&loc=Local"
+
+Redis:
+  addr: "10.176.5.171:4700"
+  password: "s3alwCh1XMNBlUHA+"
+  idletimeout: 240
+  poolsize: 100
+  db: 0

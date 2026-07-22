@@ -1,9 +1,9 @@
 package utils
 
 import (
-	"artist/application/pkg/logger"
 	"context"
 	"fmt"
+	"gin-demo/src/pkg/logger"
 	"os"
 	"runtime"
 	"time"
