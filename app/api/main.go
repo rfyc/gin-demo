@@ -19,9 +19,8 @@ func main() {
 
 	defer core.Cleanup()
 
-	ctx := context.Background()
-	cfg := core.Conf.Server
-	srv := &http.Server{
+	var cfg = core.Conf.Server
+	var srv = &http.Server{
 		Addr:         cfg.Addr,
 		Handler:      router.New(cfg),
 		ReadTimeout:  cfg.ReadTimeout,
@@ -29,29 +28,29 @@ func main() {
 		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	errCh := make(chan error, 1)
+	var errCh = make(chan error, 1)
+	var quit = make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+
 	go func() {
-		logger.Infof(ctx, "HTTP 服务器启动 [%s]", cfg.Addr)
+		logger.Printf("HTTP 服务器启动 [%s]\n", cfg.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
-
 	select {
 	case err := <-errCh:
-		logger.Errorf(ctx, "服务器错误: %v", err)
+		logger.Printf("服务器错误: %v\n", err)
 		os.Exit(1)
 	case sig := <-quit:
-		logger.Infof(ctx, "收到关闭信号: %v", sig)
+		logger.Printf("收到关闭信号: %v\n", sig)
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	var shutdownCtx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Errorf(ctx, "服务器关闭失败: %v", err)
+		logger.Printf("服务器关闭失败: %v\n", err)
 	}
-	logger.Infof(ctx, "服务器优雅关闭")
+	logger.Printf("服务器优雅关闭\n")
 }

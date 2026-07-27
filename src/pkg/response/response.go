@@ -9,7 +9,6 @@ import (
 // Response 是所有 API 返回的统一格式（参照 handout 项目）
 type Response struct {
 	Code    int         `json:"code"` // 业务错误码，0 表示成功
-	Stat    int         `json:"stat"` // 状态：0 失败，1 成功
 	Message string      `json:"msg"`  // 错误/成功消息
 	Data    interface{} `json:"data"` // 响应数据
 }
@@ -22,7 +21,6 @@ func Success(c *gin.Context, data interface{}) {
 	}
 	c.JSON(http.StatusOK, Response{
 		Code:    0,
-		Stat:    1,
 		Message: "success",
 		Data:    data,
 	})
@@ -41,7 +39,6 @@ func Fail(c *gin.Context, err error, code ...int) {
 	}
 	c.JSON(http.StatusOK, Response{
 		Code:    errCode,
-		Stat:    0,
 		Message: message,
 		Data:    struct{}{},
 	})
@@ -59,7 +56,6 @@ func AbortWithError(c *gin.Context, err error, code ...int) {
 	}
 	c.AbortWithStatusJSON(http.StatusOK, Response{
 		Code:    errCode,
-		Stat:    0,
 		Message: message,
 		Data:    struct{}{},
 	})

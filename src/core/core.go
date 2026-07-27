@@ -48,14 +48,30 @@ func init() {
 		panic(fmt.Errorf("conf.Load FAIL: %w", err))
 	}
 
-	// db 初始化
-	if DB, err = db.NewDB(&Conf.MySQL); err != nil {
-		panic(fmt.Errorf("db.NewDB FAIL: %w", err))
+	// db 初始化：本地环境且 MySQL 读写 DSN 均为空时使用 mock SQLite，否则连接真实 MySQL
+	if Conf.IsLocal() && Conf.MySQL.Reader == "" && Conf.MySQL.Writer == "" {
+		// 本地环境 + DSN 为空 → 使用独立的 mock DB 创建函数
+		if DB, err = db.NewMockDB(); err != nil {
+			panic(fmt.Errorf("db.NewMockDB FAIL: %w", err))
+		}
+	} else {
+		// 非本地环境，或任一 DSN 非空 → 使用真实 MySQL 连接
+		if DB, err = db.NewDB(&Conf.MySQL); err != nil {
+			panic(fmt.Errorf("db.NewDB FAIL: %w", err))
+		}
 	}
 
-	// cache 初始化
-	if Cache, err = cache.NewRedisPool(&Conf.Redis); err != nil {
-		panic(fmt.Errorf("cache.NewRedisPool FAIL: %w", err))
+	// cache 初始化：本地环境且 Redis Addr 为空时使用 miniredis mock，否则连接真实 Redis
+	if Conf.IsLocal() && Conf.Redis.Addr == "" {
+		// 本地环境 + Addr 为空 → 使用独立的 mock Redis 创建函数
+		if Cache, err = cache.NewMockRedisPool(&Conf.Redis); err != nil {
+			panic(fmt.Errorf("cache.NewMockRedisPool FAIL: %w", err))
+		}
+	} else {
+		// 非本地环境，或 Addr 非空 → 使用真实 Redis 连接
+		if Cache, err = cache.NewRedisPool(&Conf.Redis); err != nil {
+			panic(fmt.Errorf("cache.NewRedisPool FAIL: %w", err))
+		}
 	}
 
 	// logger 初始化
