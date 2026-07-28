@@ -343,8 +343,6 @@ func cleanPathPrefix(path string) string {
 	return path
 }
 
-// findUpward 从当前目录向上查找指定的相对路径
-// 返回找到的路径，如果未找到返回空字符串
 func findUpward(relativePath string) string {
 	for i := 0; i <= 5; i++ {
 		var searchPath string
@@ -358,4 +356,21 @@ func findUpward(relativePath string) string {
 		}
 	}
 	return ""
+}
+
+func FindProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err = os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("go.mod not found")
+		}
+		dir = parent
+	}
 }

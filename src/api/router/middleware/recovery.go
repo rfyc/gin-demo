@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Recovery 捕获 panic，记录堆栈，并返回 500 响应。
 func Recovery() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {

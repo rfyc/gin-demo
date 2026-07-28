@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// RequestID 返回一个为每个请求生成唯一 ID 的中间件。
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := c.GetHeader("X-Request-ID")

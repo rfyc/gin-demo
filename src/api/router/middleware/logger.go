@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Logger 返回一个将请求信息写入日志的 gin 中间件。
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
