@@ -1,33 +1,44 @@
 ---
-name: golang-testing
-description: Go 测试模式，包括表驱动测试、子测试、基准测试、模糊测试和测试覆盖率。遵循 TDD 方法论和惯用 Go 实践。
+name: go-testing
+description: 强制执行 Go TDD 工作流，先写表驱动测试再实现代码，确保覆盖率 80%+。涵盖表驱动、基准、模糊测试等惯用模式。
 origin: ECC
 ---
 
-# Go 测试模式
+# Go 测试与 TDD 模式
 
-遵循 TDD 方法论编写可靠、可维护测试的全面 Go 测试模式。
+遵循 TDD 方法论编写可靠、可维护测试的全面 Go 测试模式。强制执行 RED-GREEN-REFACTOR 循环，确保代码质量与测试覆盖率。
 
 ## 激活时机
 
-- 编写新 Go 函数或方法时
+- 实现新 Go 函数或方法时（必须先写测试）
 - 为已有代码补充测试覆盖时
+- 修复 Bug 时（先写失败测试复现问题）
+- 构建核心业务逻辑时
 - 为性能关键代码创建基准测试时
 - 为输入验证实现模糊测试时
-- 在 Go 项目中遵循 TDD 工作流时
+- 学习 Go 中的 TDD 工作流时
 
-## Go 的 TDD 工作流
+## TDD 强制工作流
+
+### 执行步骤（必须按顺序）
+
+1. **定义类型/接口**：先搭建函数签名，用 `panic("尚未实现")` 占位
+2. **编写表驱动测试**：创建全面的测试用例（含边界、错误路径）
+3. **运行测试（RED）**：验证测试因正确原因失败
+4. **实现代码（GREEN）**：编写最少量代码使测试通过
+5. **重构（REFACTOR）**：在保持测试通过的前提下改进代码
+6. **检查覆盖率**：确保覆盖率达到目标（通用代码 80%+，公开 API 90%+，核心逻辑 100%）
 
 ### RED-GREEN-REFACTOR 循环
 
 ```
-RED     → 先写一个失败的测试
-GREEN   → 编写最少量代码使测试通过
-REFACTOR → 在保持测试通过的同时改进代码
-REPEAT  → 继续下一个需求
+RED     → 编写失败的表驱动测试
+GREEN   → 实现最少量代码使测试通过
+REFACTOR → 改进代码，测试保持通过
+REPEAT  → 下一个测试用例
 ```
 
-### Go 中的 TDD 逐步指南
+### TDD 逐步指南（基础示例）
 
 ```go
 // 第 1 步：定义接口/签名
@@ -45,16 +56,29 @@ package calculator
 import "testing"
 
 func TestAdd(t *testing.T) {
-    got := Add(2, 3)
-    want := 5
-    if got != want {
-        t.Errorf("Add(2, 3) = %d; 期望 %d", got, want)
+    tests := []struct {
+        name     string
+        a, b     int
+        expected int
+    }{
+        {"正数相加", 2, 3, 5},
+        {"负数相加", -1, -2, -3},
+        {"零值", 0, 0, 0},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := Add(tt.a, tt.b)
+            if got != tt.expected {
+                t.Errorf("Add(%d, %d) = %d; 期望 %d", tt.a, tt.b, got, tt.expected)
+            }
+        })
     }
 }
 
-// 第 3 步：运行测试 —— 验证失败
-// $ go test
-// --- FAIL: TestAdd (0.00s)
+// 第 3 步：运行测试 —— 验证 RED 阶段
+// $ go test ./...
+// --- FAIL: TestAdd/正数相加 (0.00s)
 // panic: 尚未实现
 
 // 第 4 步：实现最少量代码（GREEN）
@@ -62,12 +86,151 @@ func Add(a, b int) int {
     return a + b
 }
 
-// 第 5 步：运行测试 —— 验证通过
-// $ go test
+// 第 5 步：运行测试 —— 验证 GREEN 阶段
+// $ go test ./...
 // PASS
 
-// 第 6 步：如需重构，验证测试仍然通过
+// 第 6 步：检查覆盖率
+// $ go test -cover ./...
+// coverage: 100.0%
 ```
+
+### TDD 完整示例：邮箱验证器
+
+**目标：实现 ValidateEmail 函数**
+
+#### 第 1 步：定义接口
+
+```go
+// validator/email.go
+package validator
+
+// ValidateEmail 检查给定字符串是否是有效的邮箱地址。
+// 有效返回 nil，否则返回描述问题的错误。
+func ValidateEmail(email string) error {
+    panic("尚未实现")
+}
+```
+
+#### 第 2 步：编写表驱动测试（RED）
+
+```go
+// validator/email_test.go
+package validator
+
+import "testing"
+
+func TestValidateEmail(t *testing.T) {
+    tests := []struct {
+        name    string
+        email   string
+        wantErr bool
+    }{
+        // 有效邮箱
+        {"简单邮箱", "user@example.com", false},
+        {"带子域名", "user@mail.example.com", false},
+        {"带加号标签", "user+tag@example.com", false},
+        {"带点号本地部分", "first.last@example.com", false},
+
+        // 无效邮箱
+        {"空字符串", "", true},
+        {"无 @ 符号", "userexample.com", true},
+        {"无域名", "user@", true},
+        {"无本地部分", "@example.com", true},
+        {"双 @ 符号", "user@@example.com", true},
+        {"含空格", "user @example.com", true},
+        {"无顶级域名", "user@example", true},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := ValidateEmail(tt.email)
+            if tt.wantErr && err == nil {
+                t.Errorf("ValidateEmail(%q) = nil；期望错误", tt.email)
+            }
+            if !tt.wantErr && err != nil {
+                t.Errorf("ValidateEmail(%q) = %v；期望 nil", tt.email, err)
+            }
+        })
+    }
+}
+```
+
+#### 第 3 步：运行测试 —— 验证 RED
+
+```bash
+$ go test ./validator/...
+
+--- FAIL: TestValidateEmail (0.00s)
+    --- FAIL: TestValidateEmail/简单邮箱 (0.00s)
+        panic: 尚未实现
+
+FAIL
+```
+
+✓ 测试如预期失败（panic）。
+
+#### 第 4 步：实现最少量代码（GREEN）
+
+```go
+// validator/email.go
+package validator
+
+import (
+    "errors"
+    "regexp"
+)
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+var (
+    ErrEmailEmpty   = errors.New("邮箱不能为空")
+    ErrEmailInvalid = errors.New("邮箱格式无效")
+)
+
+func ValidateEmail(email string) error {
+    if email == "" {
+        return ErrEmailEmpty
+    }
+    if !emailRegex.MatchString(email) {
+        return ErrEmailInvalid
+    }
+    return nil
+}
+```
+
+#### 第 5 步：运行测试 —— 验证 GREEN
+
+```bash
+$ go test ./validator/...
+
+PASS
+ok      project/validator    0.003s
+```
+
+✓ 所有测试通过！
+
+#### 第 6 步：检查覆盖率
+
+```bash
+$ go test -cover ./validator/...
+
+PASS
+coverage: 100.0% of statements
+ok      project/validator    0.003s
+```
+
+✓ 覆盖率：100%，TDD 完成！
+
+### Bug 修复的 TDD 模式
+
+修复 Bug 时必须遵循：
+
+1. **先写失败测试**：用测试复现 Bug，确认测试失败
+2. **运行测试**：验证 RED（Bug 存在）
+3. **修复 Bug**：修改代码
+4. **运行测试**：验证 GREEN（Bug 已修复）
+5. **回归测试**：确保原有测试全部通过
 
 ## 表驱动测试
 
@@ -678,18 +841,26 @@ go test -fuzz=FuzzParse -fuzztime=30s ./...
 go test -count=10 ./...
 ```
 
-## 最佳实践
+## TDD 最佳实践
+
+**必须遵守：**
+- 在任何实现代码之前先写测试（严格 TDD）
+- 每次改动后立即运行测试
+- RED 阶段验证测试是因正确原因失败（不是编译错误或拼写错误）
+- GREEN 阶段只写最少量的代码使测试通过
+- 使用表驱动测试全面覆盖正常路径、边界条件、错误路径
+- 测试行为，而非实现细节
 
 **应当：**
-- 先写测试（TDD）
-- 使用表驱动测试实现全面覆盖
-- 测试行为，而非实现
+- 包含边界用例（空值、nil、最大值、最小值）
 - 在辅助函数中使用 `t.Helper()`
 - 对独立测试使用 `t.Parallel()`
 - 用 `t.Cleanup()` 清理资源
 - 使用有意义的测试名称描述场景
 
 **不应当：**
+- 跳过 RED 阶段直接写实现
+- 在测试之前写实现代码
 - 直接测试私有函数（通过公开 API 测试）
 - 在测试中使用 `time.Sleep()`（使用 channel 或条件变量）
 - 忽视不稳定的测试（修复或删除它们）
@@ -717,4 +888,10 @@ test:
         awk -F'%' '{if ($1 < 80) exit 1}'
 ```
 
-**记住**：测试就是文档。它们展示了代码该如何使用。清晰地编写测试，并保持其及时更新。
+## 与其他技能配合
+
+- 实现完成后使用 `go-review` 进行代码审查
+- 编码时参考 `golang-patterns` 中的惯用 Go 写法
+- 测试无法通过编译时先排查构建问题
+
+**记住**：测试就是文档。它们展示了代码该如何使用。清晰地编写测试，并保持其及时更新。严格遵守 TDD 流程：先 RED，再 GREEN，最后 REFACTOR。
