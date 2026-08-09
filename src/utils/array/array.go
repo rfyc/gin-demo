@@ -32,13 +32,13 @@ func ToString[T NormalType](arr []T) []string {
 	return result
 }
 
-// SortToString 对数组进行排序，并返回排序后的字符串切片。
+// ToSortString 对数组进行排序，并返回排序后的字符串切片。
 // 该函数不会修改原数组，而是操作其副本。
 // 参数:
 //   - arr: 支持比较运算的元素切片。
 // 返回:
 //   - []string: 排序后的字符串切片。
-func SortToString[T CompareType](arr []T) (result []string) {
+func ToSortString[T CompareType](arr []T) (result []string) {
 	// 创建副本以保证原数组不可变性
 	tmp := make([]T, len(arr))
 	copy(tmp, arr)
@@ -52,13 +52,13 @@ func SortToString[T CompareType](arr []T) (result []string) {
 	return result
 }
 
-// Random 从数组中随机抽取一个元素。
+// Rand 从数组中随机抽取一个元素。
 // 参数:
 //   - arr: 需要从中抽取元素的切片。
 // 返回:
 //   - element: 抽取的随机元素。
 //   - err: 如果数组为空，则返回 error。
-func Random[T any](arr []T) (element T, err error) {
+func Rand[T any](arr []T) (element T, err error) {
 	if len(arr) == 0 {
 		return element, fmt.Errorf("Random fail: the array is empty")
 	}
@@ -68,30 +68,30 @@ func Random[T any](arr []T) (element T, err error) {
 	return arr[index], nil
 }
 
-// Exclude 根据提供的值过滤掉数组中的指定元素。
+// Filter 根据提供的值过滤掉数组中的指定元素。
 // 返回一个新数组，其中包含原数组中不在 `val` 列表中的元素。
 // 参数:
 //   - arr: 源数组。
 //   - val: 需要被过滤掉的目标值列表。
 // 返回:
 //   - []T: 过滤后的新数组。
-func Exclude[T comparable](arr []T, val ...T) (newArray []T) {
+func Filter[T comparable](arr []T, val ...T) (newArray []T) {
 	for _, v := range arr {
 		// 如果当前元素不在过滤值列表中，则保留
-		if !contains(val, v) {
+		if !Exist(val, v) {
 			newArray = append(newArray, v)
 		}
 	}
 	return
 }
 
-// contains 判断切片中是否包含指定元素。
+// Exist 判断切片中是否包含指定元素。
 // 参数:
 //   - slice: 待查找的切片。
 //   - item: 目标元素。
 // 返回:
 //   - bool: 包含返回 true，否则返回 false。
-func contains[T comparable](slice []T, item T) bool {
+func Exist[T comparable](slice []T, item T) bool {
 	for _, v := range slice {
 		if v == item {
 			return true

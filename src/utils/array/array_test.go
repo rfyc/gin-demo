@@ -39,10 +39,10 @@ func TestSortToString(t *testing.T) {
 	sortToStringCheck(t, []int{}, nil)
 }
 
-// sortToStringCheck 校验 SortToString 对指定类型数组的排序转换结果。
+// sortToStringCheck 校验 ToSortString 对指定类型数组的排序转换结果。
 func sortToStringCheck[T CompareType](t *testing.T, arr []T, want []string) {
 	t.Helper()
-	got := SortToString(arr)
+	got := ToSortString(arr)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("SortToString(%v) = %v, want %v", arr, got, want)
 	}
@@ -51,7 +51,7 @@ func sortToStringCheck[T CompareType](t *testing.T, arr []T, want []string) {
 func TestSortToStringNotMutateOriginal(t *testing.T) {
 	// 验证排序不会修改原数组（不可变性）
 	src := []int{3, 1, 2}
-	_ = SortToString(src)
+	_ = ToSortString(src)
 	if !reflect.DeepEqual(src, []int{3, 1, 2}) {
 		t.Errorf("SortToString 修改了原数组: %v", src)
 	}
@@ -64,21 +64,21 @@ func TestRandom(t *testing.T) {
 	randomCheck(t, []int{7})
 }
 
-// randomCheck 校验 Random 抽取的元素属于原数组。
+// randomCheck 校验 Rand 抽取的元素属于原数组。
 func randomCheck[T comparable](t *testing.T, arr []T) {
 	t.Helper()
-	got, err := Random(arr)
+	got, err := Rand(arr)
 	if err != nil {
 		t.Fatalf("Random(%v) 意外报错: %v", arr, err)
 	}
-	if !contains(arr, got) {
+	if !Exist(arr, got) {
 		t.Errorf("Random(%v) = %v, 不在原数组中", arr, got)
 	}
 }
 
 func TestRandomEmpty(t *testing.T) {
 	// 异常场景：空数组必须返回错误
-	_, err := Random([]int{})
+	_, err := Rand([]int{})
 	if err == nil {
 		t.Fatal("Random([]int{}) 未返回错误")
 	}
@@ -102,7 +102,7 @@ func TestExclude(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Exclude(tt.arr, tt.val...)
+			got := Filter(tt.arr, tt.val...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Exclude(%v, %v) = %v, want %v", tt.arr, tt.val, got, tt.want)
 			}

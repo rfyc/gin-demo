@@ -591,7 +591,7 @@ func join(parts []string) string {
 ```bash
 # 构建与运行
 go build ./...
-go run ./cmd/myapp
+go run ./cli/myapp
 
 # 测试
 go test ./...
