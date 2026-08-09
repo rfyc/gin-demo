@@ -40,7 +40,7 @@ func GetDirPath(filePath string) (dirPath string) {
 	// 获取文件路径
 	return filePath[0:strings.LastIndex(filePath, "/")]
 }
-  
+
 func FileName(url string) (fileName string) {
 	url = strings.Split(url, "?")[0]
 	return url[strings.LastIndex(url, "/")+1:]
