@@ -15,6 +15,117 @@ origin: ECC
 - 重构已有 Go 代码时
 - 设计 Go 包/模块时
 
+## 编码风格
+
+### 函数编写 **重要 - 调用本 skill 后必须遵循**
+
+**本 skill 的以下规范为强制要求: 编写或修改 Go 函数时, 必须逐条执行, 不可省略:**
+
+* 规范:
+  - 第一个参数必须是 `context.Context`, 用于传递取消信号、上下文信息
+  - 函数要短小精悍, 复杂逻辑拆分为多个子函数
+  - 函数必须写注释: 说明用途、入参、出参、错误场景
+  - 所有变量在函数开头 `var ()` 中提前声明, 不使用 `:=`
+  - 每个变量必须带注释说明用途
+  - 涉及第三方请求(数据库/外部服务/网络)或者重要逻辑的函数必须记录日志: 耗时, error, 入参出参, 主要参数
+  - 处理错误必须包含上下文: 产生错误的函数名、关键参数值, 使用 `%w` 包装
+  - 逻辑复杂时拆分为多个小逻辑块, 一级逻辑块用 `{}` 包裹, 每个块带编号注释(1. 2. 2.1. 2.2.)说明层级与关联
+
+* 示例(必须照此风格编写):
+
+```go
+// GetUserOrders 查询指定用户的订单列表, 并填充每个订单的商品详情.
+// 入参: ctx 请求上下文(携带超时与取消信号), userID 用户ID.
+// 出参: orders 订单列表(含商品详情), err 查询失败时返回带上下文信息的错误.
+func GetUserOrders(ctx context.Context, userID int64) (orders []*Order, err error) {
+	
+	var (
+		db         *gorm.DB  // 数据库连接
+		orders     []*Order  // 订单列表
+		goods      []*Goods  // 商品列表
+		goodsIDs   []int64   // 订单涉及的商品ID列表
+		goodsMap   map[int64]*Goods // 商品ID到商品的索引
+	)
+
+	// 涉及第三方请求(数据库/外部服务)的函数, 必须记录处理日志: 耗时, error, 入参出参, 主要参数
+	defer func(startTime time.Time) {
+		if err != nil {
+			log.Printf("GetUserOrders FAIL - userID: %v - err: %v - cost: %s", userID, err, time.Since(startTime))
+		} else {
+			log.Printf("GetUserOrders OK - userID: %v - orderCount: %d - cost: %s", userID, len(orders), time.Since(startTime))
+		}
+	}(time.Now())
+
+	// 1. 查询订单列表; 直接调用函数同时处理 error, 尽量避免新开行判断错误
+	if orders, err = queryOrders(ctx, userID); err != nil {
+		return nil, fmt.Errorf("query orders fail: %w - userID: %v", err, userID)
+	}
+
+	// 2. 填充商品详情
+	{
+		// 2.1. 批量查询所有订单涉及的商品, 一次请求避免 N+1 问题
+		if goodsIDs = collectGoodsIDs(orders); len(goodsIDs) > 0 {
+			if goods, err = queryGoods(ctx, goodsIDs); err != nil {
+				return nil, fmt.Errorf("query goods fail: %w - goodsIDs: %v", err, goodsIDs)
+			}
+		}
+		// 2.2. 按商品ID建立索引, 逐单填充商品信息
+		if goodsMap = indexGoods(goods); len(goodsMap) > 0 {
+			for _, order := range orders {
+				order.Goods = goodsMap[order.GoodsID]
+			}
+		}
+	}
+	return orders, nil
+}
+```
+
+### 不可变性（关键）
+
+**始终**创建新对象，**绝不**修改已有对象：
+
+```
+// 伪代码
+错误：modify(original, field, value) → 就地修改 original
+正确：update(original, field, value) → 返回带有变更的新副本
+```
+
+原因：不可变数据可防止隐藏的副作用，使调试更容易，并支持安全的并发。
+
+### 文件组织
+
+多个小文件 > 少数大文件：
+- 高内聚、低耦合
+- 典型 200-400 行，最多 800 行
+- 从大模块中提取工具函数
+- 按功能/领域组织，而非按类型
+
+### 错误处理
+
+**始终**全面处理错误：
+- 在每个层级显式处理错误
+- 面向 UI 的代码提供用户友好的错误信息
+- 服务端记录详细的错误上下文
+- 绝不静默吞掉错误
+
+### 输入验证
+
+**始终**在系统边界处验证：
+- 处理前验证所有用户输入
+- 有条件时使用基于 schema 的验证
+- 快速失败并给出清晰的错误信息
+- 永远不信任外部数据（API 响应、用户输入、文件内容）
+
+### 代码质量清单
+
+标记工作完成前：
+- [ ] 代码可读，命名清晰
+- [ ] 函数短小（< 50 行）
+- [ ] 文件专注（< 800 行）
+- [ ] 无深度嵌套（> 4 层）
+- [ ] 有适当的错误处理
+- [ ] 无硬编码值（使用常量或配置）
+- [ ] 无可变操作（使用不可变模式）
 ## 核心原则
 
 ### 简洁与清晰
