@@ -289,7 +289,7 @@ return fmt.Errorf("get user %s: %w", userID, err)
 
 ## 与其他技能配合
 
-- 先用 `golang-testing` 确保测试通过
-- 使用 `golang-patterns` 参考惯用 Go 写法
+- 先用 `go-testing` 确保测试通过
+- 使用 `go-coding` 参考惯用 Go 写法
 - 构建报错时先排查编译问题
 - 非 Go 相关问题使用通用代码审查
