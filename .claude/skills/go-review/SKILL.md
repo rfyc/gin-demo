@@ -1,295 +1,98 @@
 ---
 name: go-review
-description: 全面的 Go 代码审查，涵盖惯用模式、并发安全、错误处理和安全性。在编写/修改 Go 代码、提交变更或审查 PR 时调用。
-origin: ECC
+description: 审查 Go 代码变更的业务逻辑、Bug、遗漏与回归影响，以及安全、并发、死锁、泄漏、性能等风险。在提交 Go 变更前或审查 PR 时调用，发现的功能与风险问题须修复后才能合并。
 ---
 
-# Go 代码审查
+# Go 变更审查
 
-全面的 Go 专项代码审查技能，覆盖安全漏洞、并发正确性、错误处理、惯用模式与性能优化。
-
-## 激活时机
-
-- 编写或修改 Go 代码后
-- 提交 Go 变更前
-- 审查含 Go 代码的 Pull Request 时
-- 熟悉新的 Go 代码库时
-- 学习惯用 Go 模式时
+对 Go 代码变更做业务逻辑与风险审查：确认实现是否符合意图，排查 Bug、遗漏、回归，以及安全、并发、死锁、泄漏、性能问题。代码格式与风格不属于本技能职责（由 go-coding 承载）。
 
 ## 审查流程
 
-### 步骤 1：识别变更
+1. **理解变更意图**：先明确本次改动要实现什么功能、解决什么问题（依据需求、issue、提交说明、注释、函数名），再对照代码判断实现是否符合预期
+2. **识别变更范围**：执行 `git diff -- '*.go'` 聚焦修改的文件，并找出其调用方
+3. **静态分析辅助**（运行 go 命令前先按 go-where 定位 go 版本）：`go vet ./...`、`go test ./...`、`go test -race ./...`；静态检查通过不等于业务正确
+4. **逐维度审查**：按下文维度逐项检查，问题按严重程度归类
+5. **修复后验证**：修复 bug 先按 go-testing 写失败测试复现；修复后重新运行测试与静态分析，确认无回归
 
-执行以下命令，聚焦于已修改的 `.go` 文件：
+## 审查维度
 
-```bash
-git diff -- '*.go'
-```
+### 业务逻辑与 Bug（审查重点）
 
-### 步骤 2：运行静态分析
+- **意图匹配**：实现与需求、注释、函数名的预期一致，无功能缺失或偏离
+- **边界条件**：空值、nil、0、负数、上限、越界、超大输入
+- **异常分支**：error 分支、default 分支、panic 恢复是否完整；失败路径是否留下不一致状态
+- **逻辑正确性**：条件判断、比较运算、类型转换、索引计算、循环终止条件
+- **场景遗漏**：未处理的输入组合、未覆盖的状态转换、并发窗口下的逻辑竞态
 
-```bash
-# 基础分析
-go vet ./...
+### 改动影响与回归
 
-# 高级检查（如已安装）
-staticcheck ./...
-golangci-lint run
+- **调用方影响**：接口/函数签名、返回语义变化对所有调用点的影响
+- **下游行为**：公共函数、对外契约、依赖方行为的变化
+- **全局状态**：包级变量、缓存、配置、连接池的连锁影响
+- **数据兼容**：DB schema/字段/默认值变更对存量数据与读写逻辑的兼容性
 
-# 竞态检测
-go build -race ./...
-go test -race ./...
+### 安全（CRITICAL）
 
-# 安全漏洞
-govulncheck ./...
-```
+- SQL 注入：字符串拼接查询，未参数化
+- 命令注入：未验证输入拼入 `os/exec`
+- 路径穿越：用户可控路径未经 `filepath.Clean` + 前缀检查
+- 敏感信息：源码硬编码密钥/密码/Token、`TLSClientConfig.InsecureSkipVerify: true`
+- `unsafe` 包无正当理由
+- 外部输入（API 响应、文件、请求体）未验证直接使用
 
-### 步骤 3：逐文件深度审查
+### 并发、死锁与泄漏
 
-聚焦于已修改的 Go 文件，按以下优先级逐项检查。
+- **数据竞争**：共享 map/变量无同步访问
+- **死锁**：无缓冲 channel 只发不收、Mutex 未 `defer` 解锁、锁顺序不一致
+- **泄漏**：goroutine 无退出路径、未用 WaitGroup/errgroup 等待、循环中 defer 资源累积
+- **并发正确性**：循环变量捕获、并发读写窗口、取消信号未透传
 
-## 审查优先级与分类
+### 错误处理（Bug 类）
 
-### 严重（CRITICAL，必须修复）
+- 忽略错误：静默吞掉、`_ =` 丢弃关键操作结果
+- panic 控制流程：普通错误路径使用 panic
+- 错误判断失效：用 `==` 比较已包装的错误（应使用 `errors.Is`/`errors.As`）
 
-#### 安全类
-- **SQL 注入**：`database/sql` 查询中使用字符串拼接，未使用参数化查询
-- **命令注入**：`os/exec` 中使用未验证的输入拼接命令字符串
-- **路径穿越**：用户控制的文件路径未经 `filepath.Clean` + 前缀检查
-- **竞态条件**：共享状态（map、slice、变量）未加同步访问
-- **unsafe 包**：无正当理由使用 `unsafe` 包
-- **硬编码密钥**：源码中含 API 密钥、密码、Token 等敏感凭据
-- **不安全 TLS**：`TLSClientConfig` 中设置 `InsecureSkipVerify: true`
+### 性能（MEDIUM）
 
-#### 错误处理类
-- **忽略错误**：使用 `_` 丢弃错误（极个别无关紧要的场景除外）
-- **缺少错误包装**：直接 `return err` 而非 `fmt.Errorf("context: %w", err)`
-- **可恢复错误使用 panic**：普通错误路径应返回 error 而非 panic
-- **缺少 errors.Is/As**：错误判断应使用 `errors.Is(err, target)` 或 `errors.As`，而非 `err == target`
-
-### 高（HIGH，应当修复）
-
-#### 并发类
-- **Goroutine 泄漏**：goroutine 无取消机制（应使用 `context.Context` 协调退出）
-- **无缓冲 channel 死锁风险**：发送端无对应接收方时永久阻塞
-- **缺少 sync.WaitGroup**：启动多个 goroutine 时缺少等待协调
-- **Mutex 误用**：未使用 `defer mu.Unlock()`，可能导致死锁
-
-#### 代码质量类
-- **函数过长**：单个函数超过 50 行
-- **嵌套过深**：条件嵌套超过 4 层
-- **非惯用写法**：使用冗长的 `if/else` 而非提前返回（early return）
-- **包级可变变量**：使用包级可变全局状态（应通过依赖注入）
-- **接口污染**：定义了未被使用或过于宽泛的抽象接口
-
-### 中（MEDIUM，考虑修复）
-
-#### 性能类
-- **循环中字符串拼接**：应使用 `strings.Builder` 或 `strings.Join`
-- **切片未预分配**：已知大小时应使用 `make([]T, 0, cap)` 预分配
-- **N+1 查询**：在循环中执行数据库查询
-- **热路径不必要分配**：高频路径中频繁创建临时对象
-
-#### 最佳实践类
-- **context 位置**：`ctx context.Context` 应为函数第一个参数
-- **未使用表驱动测试**：测试应使用表驱动模式覆盖多个场景
-- **错误信息格式**：应小写开头，句末无标点
-- **包命名**：应简短、全小写、无下划线
-- **循环中 defer**：`defer` 在循环体中会导致资源累积
-
-## 常见问题修复示例
-
-### 示例 1：竞态条件（CRITICAL）
-
-```go
-// ❌ 差：共享 map 无同步访问
-var cache = map[string]*Session{}
-
-func GetSession(id string) *Session {
-    return cache[id] // 竞态条件！
-}
-```
-
-```go
-// ✅ 好：使用 sync.RWMutex 保护
-var (
-    cache   = map[string]*Session{}
-    cacheMu sync.RWMutex
-)
-
-func GetSession(id string) *Session {
-    cacheMu.RLock()
-    defer cacheMu.RUnlock()
-    return cache[id]
-}
-```
-
-### 示例 2：缺少错误上下文（HIGH）
-
-```go
-// ❌ 差：无上下文，错误追踪困难
-return err
-```
-
-```go
-// ✅ 好：包装错误并附带上下文
-return fmt.Errorf("get user %s: %w", userID, err)
-```
-
-### 示例 3：Goroutine 泄漏（HIGH）
-
-```go
-// ❌ 差：无取消机制，context 取消时 goroutine 泄漏
-func leakyFetch(ctx context.Context, url string) <-chan []byte {
-    ch := make(chan []byte)
-    go func() {
-        data, _ := fetch(url)
-        ch <- data // 无接收方时永久阻塞
-    }()
-    return ch
-}
-```
-
-```go
-// ✅ 好：正确处理取消和缓冲
-func safeFetch(ctx context.Context, url string) <-chan []byte {
-    ch := make(chan []byte, 1) // 带缓冲避免阻塞
-    go func() {
-        data, err := fetch(url)
-        if err != nil {
-            return
-        }
-        select {
-        case ch <- data:
-        case <-ctx.Done():
-        }
-    }()
-    return ch
-}
-```
-
-### 示例 4：非惯用提前返回（HIGH）
-
-```go
-// ❌ 差：主路径缩进过深
-func Process(ctx context.Context, id string) (*Result, error) {
-    if id != "" {
-        user, err := GetUser(ctx, id)
-        if err == nil {
-            if user.Active {
-                return ComputeResult(user), nil
-            } else {
-                return nil, fmt.Errorf("user inactive")
-            }
-        } else {
-            return nil, fmt.Errorf("get user: %w", err)
-        }
-    } else {
-        return nil, fmt.Errorf("empty id")
-    }
-}
-```
-
-```go
-// ✅ 好：提前返回，主路径清晰
-func Process(ctx context.Context, id string) (*Result, error) {
-    if id == "" {
-        return nil, fmt.Errorf("empty id")
-    }
-    user, err := GetUser(ctx, id)
-    if err != nil {
-        return nil, fmt.Errorf("get user: %w", err)
-    }
-    if !user.Active {
-        return nil, fmt.Errorf("user inactive")
-    }
-    return ComputeResult(user), nil
-}
-```
-
-### 示例 5：切片未预分配（MEDIUM）
-
-```go
-// ❌ 差：多次扩容
-func processItems(items []Item) []Result {
-    var results []Result
-    for _, item := range items {
-        results = append(results, process(item))
-    }
-    return results
-}
-```
-
-```go
-// ✅ 好：单次分配
-func processItems(items []Item) []Result {
-    results := make([]Result, 0, len(items))
-    for _, item := range items {
-        results = append(results, process(item))
-    }
-    return results
-}
-```
+- 循环中字符串拼接（应 `strings.Builder`/`strings.Join`）
+- 切片未预分配（已知大小时 `make([]T, 0, len)`）
+- N+1 查询（循环中执行 DB 查询）
+- 热路径频繁分配
 
 ## 报告格式
 
-### 审查报告结构
-
 ```markdown
-# Go 代码审查报告
+# Go 变更审查报告
 
-## 审查文件
-- internal/handler/user.go（已修改）
-- internal/service/auth.go（已修改）
+## 变更意图
+- 本次改动实现的功能 / 解决的问题：
 
-## 静态分析结果
-✓ go vet：无问题
-✓ staticcheck：无问题
-✓ go test -race：无竞态
+## 审查范围
+- 修改文件：internal/service/user.go
+- 影响调用方：internal/handler/user.go
 
 ## 发现问题
+[严重] 数据竞争
+- 位置：internal/service/cache.go:20
+- 问题：共享 map 无同步访问, 并发读写会 panic 或数据错乱
+- 修复：加 sync.RWMutex 保护
 
-[严重] 竞态条件
-文件：internal/service/auth.go:45
-问题：共享 map 无同步访问
-```go
-// 问题代码片段
-```
-修复：使用 sync.RWMutex 或 sync.Map
-```go
-// 修复示例
-```
-
-[高] 缺少错误上下文
-文件：internal/handler/user.go:28
-问题：返回错误时无上下文
-```go
-return err  // 无上下文
-```
-修复：包装错误
-```go
-return fmt.Errorf("get user %s: %w", userID, err)
-```
+[高] 业务逻辑遗漏
+- 位置：internal/service/order.go:45
+- 问题：用户不存在时返回空结果, 调用方无法区分"无数据"与"出错"
+- 修复：返回哨兵错误 ErrUserNotFound
 
 ## 摘要
-- 严重：1
-- 高：1
-- 中：0
-
-建议：阻塞合并，修复严重问题后方可合并
+- 严重：1  高：1  中：0
+- 建议：阻塞合并, 修复后重新运行 go test ./... 与 go vet ./...
 ```
 
 ## 审批标准
 
 | 状态 | 条件 | 建议 |
 |------|------|------|
-| 通过（Approve） | 无 CRITICAL 或 HIGH 问题 | 可直接合并 |
-| 警告（Warning） | 仅有 MEDIUM 问题 | 谨慎合并，建议择机修复 |
-| 阻塞（Block） | 发现 CRITICAL 或 HIGH 问题 | 阻塞合并，必须修复 |
-
-## 与其他技能配合
-
-- 先用 `go-testing` 确保测试通过
-- 使用 `go-coding` 参考惯用 Go 写法
-- 构建报错时先排查编译问题
-- 非 Go 相关问题使用通用代码审查
+| 通过（Approve） | 无 CRITICAL/HIGH，业务逻辑与影响核查无问题 | 可直接合并 |
+| 警告（Warning） | 仅 MEDIUM 或需权衡取舍的问题 | 谨慎合并，建议择机修复 |
+| 阻塞（Block） | 有 CRITICAL/HIGH，或存在业务逻辑错误/回归 | 阻塞合并，必须修复 |
