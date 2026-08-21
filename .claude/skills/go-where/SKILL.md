@@ -24,11 +24,12 @@ description: 确定当前项目可用的 go 命令路径(与 go.mod 版本一致
 
 3. **验证版本一致**:运行 `go version` 确认 go 命令版本与 go.mod 声明的版本一致(主版本即可,如 go 1.18)。若不一致,继续尝试下一个候选路径。
 
-4. **写入 MEMORY.md**:将结果保存到项目记忆的 `go_command.md`,内容需标明:
+4. **写入 MEMORY.md**:将结果保存到用户 auto-memory 目录(由 Claude 记忆系统管理,路径形如 `~/.claude/projects/<项目路径slug>/memory/`,**不要**写到项目目录 `.claude/` 下)的 `go_command.md`,内容需标明:
    - 项目路径与项目名称(不同项目的 go 命令可能不同)
    - go 命令的绝对路径
    - go 版本与选择依据
    - 该命令仅适用于本项目,不能与其它项目混用
+   并在该目录的 `MEMORY.md` 索引中追加一行指向 `go_command.md`(索引行控制在 150 字符内)。
 
 5. **后续引用**:本次会话及后续会话中,执行 go 命令时直接使用 MEMORY.md 记录的路径,无需重复探测。
 

@@ -25,6 +25,7 @@ type NormalType interface {
 // 返回:
 //   - []string: 转换后的字符串切片。
 func ToString[T NormalType](arr []T) []string {
+
 	var result []string
 	for _, item := range arr {
 		result = append(result, cast.ToString(item))
@@ -39,13 +40,20 @@ func ToString[T NormalType](arr []T) []string {
 // 返回:
 //   - []string: 排序后的字符串切片。
 func ToSortString[T CompareType](arr []T) (result []string) {
-	// 创建副本以保证原数组不可变性
-	tmp := make([]T, len(arr))
+
+	var tmp []T // 原数组副本, 保证排序不改动原数组
+
+	// 1. 创建副本以保证原数组不可变性
+	tmp = make([]T, len(arr))
 	copy(tmp, arr)
-	// 使用切片排序
-	sort.Slice(tmp, func(i, j int) bool {
-		return tmp[i] < tmp[j]
-	})
+	// 2. 对副本进行排序
+	{
+		sort.Slice(tmp, func(i, j int) bool {
+
+			return tmp[i] < tmp[j]
+		})
+	}
+	// 3. 将排序后的元素转换为字符串
 	for _, val := range tmp {
 		result = append(result, cast.ToString(val))
 	}
@@ -59,12 +67,18 @@ func ToSortString[T CompareType](arr []T) (result []string) {
 //   - element: 抽取的随机元素。
 //   - err: 如果数组为空，则返回 error。
 func Rand[T any](arr []T) (element T, err error) {
+
+	var (
+		r     = rand.New(rand.NewSource(time.Now().UnixNano())) // 随机数生成器, 以当前纳秒时间作为种子
+		index int                                               // 随机抽取的元素下标
+	)
+
+	// 1. 空数组无法抽取, 直接返回错误
 	if len(arr) == 0 {
-		return element, fmt.Errorf("Random fail: the array is empty")
+		return element, fmt.Errorf("Rand fail: the array is empty")
 	}
-	// 使用当前纳秒时间作为随机数种子
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	index := r.Intn(len(arr))
+	// 2. 从数组中抽取随机下标并返回对应元素
+	index = r.Intn(len(arr))
 	return arr[index], nil
 }
 
@@ -76,6 +90,7 @@ func Rand[T any](arr []T) (element T, err error) {
 // 返回:
 //   - []T: 过滤后的新数组。
 func Filter[T comparable](arr []T, val ...T) (newArray []T) {
+
 	for _, v := range arr {
 		// 如果当前元素不在过滤值列表中，则保留
 		if !Exist(val, v) {
@@ -92,6 +107,7 @@ func Filter[T comparable](arr []T, val ...T) (newArray []T) {
 // 返回:
 //   - bool: 包含返回 true，否则返回 false。
 func Exist[T comparable](slice []T, item T) bool {
+
 	for _, v := range slice {
 		if v == item {
 			return true

@@ -24,6 +24,7 @@ description: 审查 Go 代码变更的业务逻辑、Bug、遗漏与回归影响
 - **异常分支**：error 分支、default 分支、panic 恢复是否完整；失败路径是否留下不一致状态
 - **逻辑正确性**：条件判断、比较运算、类型转换、索引计算、循环终止条件
 - **场景遗漏**：未处理的输入组合、未覆盖的状态转换、并发窗口下的逻辑竞态
+- **参数绑定**：gin handler 请求结构体的 struct tag 是否正确——GET query 参数需 `form`/`query` tag、JSON body 需 `json` tag、`binding` 校验 tag 是否合理；tag 缺失/写错会导致参数绑定失效、请求参数丢失
 
 ### 改动影响与回归
 

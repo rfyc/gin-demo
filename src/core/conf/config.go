@@ -33,21 +33,25 @@ type Config struct {
 
 // IsLocal 判断当前是否为本地开发环境。
 func (c *Config) IsLocal() bool {
+
 	return c.Env == LOCAL
 }
 
 // IsTest 判断当前是否为测试环境。
 func (c *Config) IsTest() bool {
+
 	return c.Env == TEST
 }
 
 // IsGray 判断当前是否为灰度环境。
 func (c *Config) IsGray() bool {
+
 	return c.Env == GRAY
 }
 
 // IsOnline 判断当前是否为线上环境。
 func (c *Config) IsOnline() bool {
+
 	return c.Env == ONLINE
 }
 
@@ -83,22 +87,34 @@ type RedisCfg struct {
 //
 // 读取或解析失败时返回带上下文的错误。
 func Load(configFile string) (cfg *Config, err error) {
+
+	// 1. 校验配置文件路径非空
 	if configFile == "" {
 		return nil, fmt.Errorf("CFG_PATH 环境变量未设置且未传入配置文件路径")
 	}
+
+	// 2. 相对路径转换为基于项目根目录的绝对路径
 	if !filepath.IsAbs(configFile) {
 		if root, e := utils.FindProjectRoot(); e == nil {
 			configFile = filepath.Join(root, configFile)
 		}
 	}
-	v := viper.New()
-	v.SetConfigFile(configFile)
-	v.SetConfigType(strings.TrimPrefix(filepath.Ext(configFile), "."))
-	if err = v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("读取配置文件失败: %w", err)
+
+	// 3. 通过 viper 读取并解析配置文件
+	{
+
+		var v *viper.Viper // viper 配置解析器实例
+
+		v = viper.New()
+		v.SetConfigFile(configFile)
+		v.SetConfigType(strings.TrimPrefix(filepath.Ext(configFile), "."))
+		if err = v.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("读取配置文件失败: %w", err)
+		}
+		if err = v.Unmarshal(&cfg); err != nil {
+			return nil, fmt.Errorf("解析配置文件失败: %w", err)
+		}
 	}
-	if err = v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("解析配置文件失败: %w", err)
-	}
+
 	return cfg, nil
 }

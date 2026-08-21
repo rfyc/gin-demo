@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"gin-demo/src/core/conf"
+	"gin-demo/src/pkg/logger"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -18,25 +19,45 @@ import (
 // 创建时执行一次 PING 校验连通性，失败返回包含地址的错误。
 //   - 连接池参数映射自 cfg（PoolSize/IdleTimeout/MinIdleConns 等）；
 //   - 校验失败时关闭客户端。
-func NewRedisCli(cfg *conf.RedisCfg) (*redis.Client, error) {
-	opts := &redis.Options{
-		Addr:         cfg.Addr,
-		Password:     cfg.Password,
-		DB:           cfg.DB,
-		PoolSize:     cfg.PoolSize,
-		MinIdleConns: cfg.PoolSize / 5,
-		IdleTimeout:  time.Duration(cfg.IdleTimeout) * time.Second,
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-	}
-	client := redis.NewClient(opts)
+func NewRedisCli(cfg *conf.RedisCfg) (client *redis.Client, err error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := client.Ping(ctx).Err(); err != nil {
-		client.Close()
-		return nil, fmt.Errorf("Redis PING 失败 [addr=%s]: %w", cfg.Addr, err)
+	// 涉及第三方请求(连接 Redis), 必须记录日志: 耗时, error, 入参出参
+	defer func(startTime time.Time) {
+
+		if err != nil {
+			logger.Errorf(context.Background(), "NewRedisCli FAIL - addr: %v - err: %v - cost: %s", cfg.Addr, err, time.Since(startTime))
+		} else {
+			logger.Infof(context.Background(), "NewRedisCli OK - addr: %v - cost: %s", cfg.Addr, time.Since(startTime))
+		}
+	}(time.Now())
+
+	var (
+		opts = &redis.Options{ // go-redis 连接池配置, 参数映射自 cfg
+			Addr:         cfg.Addr,
+			Password:     cfg.Password,
+			DB:           cfg.DB,
+			PoolSize:     cfg.PoolSize,
+			MinIdleConns: cfg.PoolSize / 5,
+			IdleTimeout:  time.Duration(cfg.IdleTimeout) * time.Second,
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  3 * time.Second,
+			WriteTimeout: 3 * time.Second,
+		}
+		ctx    context.Context    // PING 连通性校验的带超时上下文
+		cancel context.CancelFunc // 上下文取消函数
+	)
+
+	// 1. 基于配置创建客户端
+	client = redis.NewClient(opts)
+
+	// 2. 执行一次 PING 校验连通性, 失败时关闭客户端并返回带地址的错误
+	{
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err = client.Ping(ctx).Err(); err != nil {
+			_ = client.Close() // 关闭失败不影响返回的 PING 错误
+			return nil, fmt.Errorf("Redis PING 失败 [addr=%s]: %w", cfg.Addr, err)
+		}
 	}
 
 	return client, nil
@@ -45,6 +66,7 @@ func NewRedisCli(cfg *conf.RedisCfg) (*redis.Client, error) {
 // Close 关闭 go-redis 客户端（真实模式）。
 // mock 模式下 miniredis 由启动方负责关闭（见 MockSrvRun）；重复调用可能返回错误。
 func Close(client *redis.Client) error {
+
 	var err error
 	if client != nil {
 		err = client.Close()

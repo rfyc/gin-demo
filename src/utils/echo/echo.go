@@ -23,6 +23,7 @@ import (
 //   - res 为 nil 时打印 "nil"，不进行序列化
 //   - 序列化失败时打印错误信息，便于排查
 func Json(res any) {
+
 	var jbytes []byte
 	var err error
 
@@ -49,6 +50,7 @@ func Json(res any) {
 //   - res 为 nil 时打印 "nil"，不进行序列化
 //   - 序列化失败时降级为直接打印原始值（%v 格式）
 func Yml(res interface{}) {
+
 	var ymls []byte
 	var err error
 
@@ -79,6 +81,7 @@ func Yml(res interface{}) {
 //   - 与 Json/Yml 不同，Dump 会展开指针、通道、接口内部等底层信息，输出更详细
 //   - 适用于调试复杂的嵌套结构（如循环引用、未导出字段等）
 func Dump(res interface{}) {
+
 	//config := spew.ConfigState{
 	//	DisableCapacities: true, // 禁用容量信息
 	//	DisableMethods:    true, // 禁用自定义方法调用
@@ -103,21 +106,27 @@ func Context(ctx context.Context) {
 		return
 	}
 
-	// 获取context的反射值
-	v := reflect.ValueOf(ctx)
+	var (
+		v reflect.Value // ctx 的反射值
+		t reflect.Type  // ctx 的反射类型
+	)
 
-	// 如果是指针类型，获取其指向的实际值
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
+	// 1. 获取 context 的反射值, 指针类型时解引用
+	{
+		v = reflect.ValueOf(ctx)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
 	}
 
-	// 获取context的类型
-	t := v.Type()
+	// 2. 获取 context 的类型并打印基础信息
+	{
+		t = v.Type()
+		fmt.Printf("Context type: %s\n", t.String())
+		fmt.Println("Context values:")
+	}
 
-	fmt.Printf("Context type: %s\n", t.String())
-	fmt.Println("Context values:")
-
-	// 非结构体类型没有字段（如 context.Background 的底层类型是 int）, 跳过字段遍历
+	// 3. 非结构体类型没有字段(如 context.Background 的底层类型是 int), 跳过字段遍历
 	if v.Kind() != reflect.Struct {
 		fmt.Println("  (no fields)")
 		return
@@ -169,6 +178,7 @@ func Context(ctx context.Context) {
 //   - 依赖 context 内部未导出字段名（key/value）及匿名嵌入的 context.Context
 //     字段，与 Go 版本实现强相关，仅用于调试目的
 func contextValues(ctx context.Context) {
+
 	var v reflect.Value
 	var t reflect.Type
 

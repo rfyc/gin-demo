@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"fmt"
 	"gin-demo/src/core/conf"
+	"gin-demo/src/pkg/logger"
 	"gin-demo/src/utils"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ type DB struct {
 // 避免静默使用错误连接导致数据写入不存在的库。
 // 返回的 DB 已建立读写两个连接池，调用方退出前必须调用 Close() 释放。
 func NewDB(cfg *conf.DBCfg) (*DB, error) {
+
 	if cfg.Reader == "" {
 		return nil, fmt.Errorf("MySQL Reader DSN 为空")
 	}
@@ -59,6 +61,7 @@ func NewDB(cfg *conf.DBCfg) (*DB, error) {
 // reader 与 writer 指向同一个 SQLite 文件（见 GetMockPath），
 // 使读写路径均可用且数据一致。失败时返回包含上下文信息的错误。
 func NewMockDB() (*DB, error) {
+
 	var err error
 	var db = &DB{}
 	if db.reader, err = InitSQLite(); err != nil {
@@ -73,22 +76,32 @@ func NewMockDB() (*DB, error) {
 // GetMockPath 返回 SQLite mock 数据库文件的绝对路径。
 // 路径位于项目根目录（go.mod 所在目录）下的 data/mock/db.sqlite，
 // 目标目录不存在时自动创建。依赖当前工作目录向上查找项目根（utils.FindProjectRoot）。
-func GetMockPath() (string, error) {
-	root, err := utils.FindProjectRoot()
-	if err != nil {
+func GetMockPath() (path string, err error) {
+	var (
+		root string // 项目根目录(go.mod 所在目录)
+		dir  string // mock 数据目录
+	)
+
+	// 1. 定位项目根目录
+	if root, err = utils.FindProjectRoot(); err != nil {
 		return "", err
 	}
-	dir := filepath.Join(root, "data/mock")
-	if err = os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("创建 data/mock 目录失败: %w", err)
+
+	// 2. 拼接 mock 数据目录并确保存在
+	{
+		dir = filepath.Join(root, "data/mock")
+		if err = os.MkdirAll(dir, 0o755); err != nil {
+			return "", fmt.Errorf("创建 data/mock 目录失败: %w", err)
+		}
+		return filepath.Join(dir, "db.sqlite"), nil
 	}
-	return filepath.Join(dir, "db.sqlite"), nil
 }
 
 // Writer 返回写库连接。
 // 若 ctx 中已注入事务句柄（见 Transaction），返回该事务句柄，
 // 保证事务内的写操作落在同一事务上；否则返回写连接池的 *gorm.DB。
 func (db *DB) Writer(ctx context.Context) *gorm.DB {
+
 	if tx := GetContextTx(ctx); tx != nil {
 		return tx
 	}
@@ -99,6 +112,7 @@ func (db *DB) Writer(ctx context.Context) *gorm.DB {
 // 若 ctx 中已注入事务句柄，返回该事务句柄（事务内读写一致）；
 // 否则返回读连接池的 *gorm.DB。
 func (db *DB) Reader(ctx context.Context) *gorm.DB {
+
 	if tx := GetContextTx(ctx); tx != nil {
 		return tx
 	}
@@ -108,6 +122,7 @@ func (db *DB) Reader(ctx context.Context) *gorm.DB {
 // Close 释放读写两个连接池的底层数据库连接。
 // 幂等安全：重复调用或底层连接已关闭时不会 panic。
 func (db *DB) Close() {
+
 	if sqlDB, err := db.writer.DB(); err == nil {
 		sqlDB.Close()
 	}
@@ -123,7 +138,9 @@ func (db *DB) Close() {
 // 读写，以保证落在同一事务上。
 // 若 ctx 已处于外层事务中，gorm 以 savepoint 形式嵌套，不会新建连接。
 func (db *DB) Transaction(ctx context.Context, fn func(ctx context.Context) error) (err error) {
+
 	if err = db.Writer(ctx).Transaction(func(tx *gorm.DB) error {
+
 		return fn(SetContextTx(ctx, tx))
 	}); err != nil {
 		return fmt.Errorf("DB Transaction FAIL: %w", err)
@@ -137,11 +154,13 @@ type dbTxKey struct{}
 
 // SetContextTx 将事务句柄 tx 注入 ctx，供事务内的 Writer/Reader 调用复用。
 func SetContextTx(ctx context.Context, tx *gorm.DB) context.Context {
+
 	return context.WithValue(ctx, dbTxKey{}, tx)
 }
 
 // GetContextTx 从 ctx 取出注入的事务句柄；ctx 中未注入事务时返回 nil。
 func GetContextTx(ctx context.Context) *gorm.DB {
+
 	if tx, ok := ctx.Value(dbTxKey{}).(*gorm.DB); ok {
 		return tx
 	}
@@ -150,7 +169,19 @@ func GetContextTx(ctx context.Context) *gorm.DB {
 
 // InitMySQL 根据 DSN 建立 MySQL 连接池，并应用连接池参数（最大连接数、空闲连接数、连接生命周期）。
 // 连接失败时返回包含 DSN 的错误上下文。SQL 日志级别为 Silent，避免刷屏。
+// 出于安全考虑日志不记录 DSN 全文（可能含密码），仅记录耗时与结果。
 func InitMySQL(dsn string) (db *gorm.DB, err error) {
+
+	// 涉及第三方请求(连接 MySQL), 记录耗时与结果日志
+	defer func(startTime time.Time) {
+
+		if err != nil {
+			logger.Errorf(context.Background(), "InitMySQL FAIL - err: %v - cost: %s", err, time.Since(startTime))
+		} else {
+			logger.Infof(context.Background(), "InitMySQL OK - cost: %s", time.Since(startTime))
+		}
+	}(time.Now())
+
 	if db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	}); err != nil {
@@ -173,8 +204,20 @@ func InitMySQL(dsn string) (db *gorm.DB, err error) {
 // InitSQLite 打开 SQLite mock 数据库（文件不存在时自动创建）。
 // 连接池限制为单连接，避免 SQLite 单写锁导致的文件锁冲突。
 func InitSQLite() (db *gorm.DB, err error) {
-	path, err := GetMockPath()
-	if err != nil {
+
+	var path string // SQLite mock 数据库文件的绝对路径
+
+	// 涉及第三方请求(打开 SQLite), 记录耗时与结果日志
+	defer func(startTime time.Time) {
+
+		if err != nil {
+			logger.Errorf(context.Background(), "InitSQLite FAIL - path: %v - err: %v - cost: %s", path, err, time.Since(startTime))
+		} else {
+			logger.Infof(context.Background(), "InitSQLite OK - path: %v - cost: %s", path, time.Since(startTime))
+		}
+	}(time.Now())
+
+	if path, err = GetMockPath(); err != nil {
 		return nil, err
 	}
 	if db, err = gorm.Open(sqlite.Open(path), &gorm.Config{
