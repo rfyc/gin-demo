@@ -17,12 +17,13 @@ func Recover(ctx context.Context) {
 
 	if err := recover(); err != nil {
 		var (
-			currTime = time.Now().Format("2006-01-02 15:04:05.000") // 当前时间, 格式 yyyy-MM-dd HH:mm:ss.SSS
-			buf      []byte                                         // panic 堆栈信息
+			currTime = time.Now().Format("2006-01-02 15:04:05.000") // currTime 当前时间, 格式 yyyy-MM-dd HH:mm:ss.SSS
+			buf      []byte                                         // buf panic 堆栈信息缓冲
+			n        int                                            // n 实际写入缓冲的堆栈字节数
 		)
 
 		buf = make([]byte, 64<<10) //nolint:gomnd
-		n := runtime.Stack(buf, false)
+		n = runtime.Stack(buf, false)
 		buf = buf[:n]
 
 		logger.Errorf(ctx, "recover panic: %v --- %s", err, string(buf))

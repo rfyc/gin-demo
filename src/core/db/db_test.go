@@ -81,7 +81,6 @@ func newMySQLDB(t *testing.T) *db.DB {
 	d, err := db.NewDB(&conf.DBCfg{Reader: mysqlDSN(), Writer: mysqlDSN()})
 	require.NoError(t, err, "db.NewDB(MySQL) FAIL")
 	t.Cleanup(func() {
-
 		d.Close()
 	})
 	return d

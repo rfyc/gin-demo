@@ -5,6 +5,7 @@ package conf
 
 import (
 	"fmt"
+	"gin-demo/src/pkg/llm"
 	"gin-demo/src/pkg/logger"
 	"gin-demo/src/utils"
 	"path/filepath"
@@ -29,6 +30,7 @@ type Config struct {
 	Log    logger.LogConfig `mapstructure:"Log"`    // Log 日志配置
 	MySQL  DBCfg            `mapstructure:"Mysql"`  // MySQL 读写库 DSN 配置
 	Redis  RedisCfg         `mapstructure:"Redis"`  // Redis 连接配置
+	Llm    llm.Conf         `mapstructure:"Llm"`    // Llm 大模型默认配置
 }
 
 // IsLocal 判断当前是否为本地开发环境。
@@ -88,6 +90,8 @@ type RedisCfg struct {
 // 读取或解析失败时返回带上下文的错误。
 func Load(configFile string) (cfg *Config, err error) {
 
+	var v *viper.Viper // viper 配置解析器实例
+
 	// 1. 校验配置文件路径非空
 	if configFile == "" {
 		return nil, fmt.Errorf("CFG_PATH 环境变量未设置且未传入配置文件路径")
@@ -102,9 +106,6 @@ func Load(configFile string) (cfg *Config, err error) {
 
 	// 3. 通过 viper 读取并解析配置文件
 	{
-
-		var v *viper.Viper // viper 配置解析器实例
-
 		v = viper.New()
 		v.SetConfigFile(configFile)
 		v.SetConfigType(strings.TrimPrefix(filepath.Ext(configFile), "."))

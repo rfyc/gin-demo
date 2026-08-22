@@ -37,7 +37,6 @@ type IResponse interface{}
 func HandleFunc[input IRequest, output IResponse](fn func(ctx context.Context, request input) (output, error)) func(c *gin.Context) {
 
 	return func(c *gin.Context) {
-
 		var (
 			request    input  // 请求体: 按 input 类型创建待绑定实例
 			bindTarget any    // ShouldBind 的绑定目标(始终为指针)

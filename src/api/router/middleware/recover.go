@@ -19,10 +19,8 @@ import (
 func Recover() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-
 		// 延迟恢复, 兜底捕获后续处理链中的 panic
 		defer func() {
-
 			if err := recover(); err != nil {
 				logger.Errorf(c.Request.Context(), "panic recovered: %v\nstack: %s", err, debug.Stack())
 				response.AbortWithError(c, fmt.Errorf("服务器内部错误"), 500)

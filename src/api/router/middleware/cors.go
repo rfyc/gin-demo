@@ -12,7 +12,6 @@ import (
 func CORS() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-
 		// 1. 设置允许跨域请求的响应头
 		{
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")

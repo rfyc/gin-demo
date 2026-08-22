@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"gin-demo/src/core/conf"
-	"gin-demo/src/pkg/logger"
+	"gin-demo/src/utils"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -23,12 +23,7 @@ func NewRedisCli(cfg *conf.RedisCfg) (client *redis.Client, err error) {
 
 	// 涉及第三方请求(连接 Redis), 必须记录日志: 耗时, error, 入参出参
 	defer func(startTime time.Time) {
-
-		if err != nil {
-			logger.Errorf(context.Background(), "NewRedisCli FAIL - addr: %v - err: %v - cost: %s", cfg.Addr, err, time.Since(startTime))
-		} else {
-			logger.Infof(context.Background(), "NewRedisCli OK - addr: %v - cost: %s", cfg.Addr, time.Since(startTime))
-		}
+		utils.LogErrorInfo(context.Background(), startTime, "NewRedisCli", err, "addr", cfg.Addr)
 	}(time.Now())
 
 	var (

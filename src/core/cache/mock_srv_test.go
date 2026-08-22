@@ -23,7 +23,6 @@ func newMockSrvClient(t *testing.T, cfg *conf.RedisCfg) *redis.Client {
 	mini, err := cache.MockSrvRun(cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-
 		mini.Close()
 	})
 
@@ -32,7 +31,6 @@ func newMockSrvClient(t *testing.T, cfg *conf.RedisCfg) *redis.Client {
 	c, err := cache.NewRedisCli(&mockCfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-
 		cache.Close(c)
 	})
 	return c

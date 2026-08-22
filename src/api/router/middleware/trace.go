@@ -20,7 +20,6 @@ import (
 func Trace() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-
 		// 1. 从请求头读取 trace_id, 缺失时生成新 UUID
 		var (
 			requestID = c.GetHeader(string(schema.CTX_TraceIDKey)) // 请求ID: 优先取请求头, 缺失则自动生成 UUID

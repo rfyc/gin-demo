@@ -16,7 +16,6 @@ func TestRecoverPanic(t *testing.T) {
 	// case: goroutine 内 panic, 应被捕获且正常退出不崩溃
 	done := make(chan struct{})
 	go func() {
-
 		defer close(done)
 		defer Recover(context.Background())
 		panic("boom")
@@ -35,7 +34,6 @@ func TestRecoverNoPanic(t *testing.T) {
 	// case: 无 panic 时, Recover 不应阻塞 goroutine 退出
 	done := make(chan struct{})
 	go func() {
-
 		defer close(done)
 		defer Recover(context.Background())
 	}()

@@ -20,7 +20,6 @@ import (
 func Logger() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-
 		// 1. 记录请求开始时的基本信息, 供后续统计耗时与组装访问日志
 		var (
 			startTime  = time.Now()             // 请求开始时间, 用于计算处理耗时

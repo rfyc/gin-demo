@@ -195,19 +195,19 @@ func getDefaultLogger() *Logger {
 //   - zapcore.Core: 组合后的日志核心
 func buildDualCores(cfg LogConfig, forceStdout bool) zapcore.Core {
 	var (
-		levelEnabler  zapcore.LevelEnabler         // 日志级别过滤器
-		baseEncCfg    zapcore.EncoderConfig        // 基础编码配置
-		fileEncCfg    zapcore.EncoderConfig        // 文件(JSON)编码配置
-		consoleEncCfg zapcore.EncoderConfig        // 控制台编码配置
-		stdout        = zapcore.AddSync(os.Stdout) // 标准输出同步器
-		cores         []zapcore.Core               // 日志核心列表
+		levelEnabler  zapcore.LevelEnabler         // levelEnabler 日志级别过滤器
+		baseEncCfg    zapcore.EncoderConfig        // baseEncCfg 基础编码配置
+		fileEncCfg    zapcore.EncoderConfig        // fileEncCfg 文件(JSON)编码配置
+		consoleEncCfg zapcore.EncoderConfig        // consoleEncCfg 控制台编码配置
+		stdout        = zapcore.AddSync(os.Stdout) // stdout 标准输出同步器
+		cores         []zapcore.Core               // cores 日志核心列表
 	)
 
 	// 1. 构建日志级别过滤器
 	{
 		levelEnabler = zap.LevelEnablerFunc(func(l zapcore.Level) bool {
 
-			level := zapcore.InfoLevel
+			var level = zapcore.InfoLevel // level 生效的日志级别下限
 			if lvl, err := zapcore.ParseLevel(cfg.Level); err == nil {
 				level = lvl
 			}
@@ -217,6 +217,8 @@ func buildDualCores(cfg LogConfig, forceStdout bool) zapcore.Core {
 
 	// 2. 组装编码配置: 时间格式与级别颜色
 	{
+		const reset = "\x1b[0m" // reset 终端颜色重置转义码
+
 		baseEncCfg = zap.NewProductionEncoderConfig()
 		baseEncCfg.TimeKey = "time"
 		baseEncCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000")
@@ -224,17 +226,16 @@ func buildDualCores(cfg LogConfig, forceStdout bool) zapcore.Core {
 		fileEncCfg = baseEncCfg
 		fileEncCfg.EncodeLevel = zapcore.CapitalLevelEncoder
 
-		const reset = "\x1b[0m"
 		consoleEncCfg = baseEncCfg
 		consoleEncCfg.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-
 			enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
 		}
 		consoleEncCfg.EncodeCaller = zapcore.ShortCallerEncoder
 		consoleEncCfg.EncodeLevel = func(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-
-			inner := level.CapitalString()
-			var levelColor string
+			var (
+				inner      = level.CapitalString() // inner 级别的全大写字符串
+				levelColor string                  // levelColor 级别对应的终端颜色码
+			)
 			switch level {
 			case zapcore.WarnLevel:
 				levelColor = "\x1b[33;1m"
@@ -250,34 +251,48 @@ func buildDualCores(cfg LogConfig, forceStdout bool) zapcore.Core {
 	}
 
 	// 3. 配置要求输出控制台时, 追加控制台核心
-	if forceStdout || cfg.Console || cfg.Path == "" {
-		consoleEnc := zapcore.NewConsoleEncoder(consoleEncCfg)
-		cores = append(cores, zapcore.NewCore(consoleEnc, stdout, levelEnabler))
+	{
+		var (
+			consoleEnc zapcore.Encoder // consoleEnc 控制台编码器
+		)
+		if forceStdout || cfg.Console || cfg.Path == "" {
+			consoleEnc = zapcore.NewConsoleEncoder(consoleEncCfg)
+			cores = append(cores, zapcore.NewCore(consoleEnc, stdout, levelEnabler))
+		}
 	}
 
 	// 4. 配置了文件路径时, 追加文件(JSON)核心, 并按配置滚动切割
-	if cfg.Path != "" {
-		maxSize := cfg.MaxSize
-		if maxSize <= 0 {
-			maxSize = 100
+	{
+		var (
+			maxSize    int                 // maxSize 单文件体积上限(MB), 默认 100
+			maxAge     int                 // maxAge 历史文件保留天数, 默认 30
+			maxBackups int                 // maxBackups 保留的旧文件数, 默认 10
+			file       zapcore.WriteSyncer // file 滚动切割的文件同步器
+			jsonEnc    zapcore.Encoder     // jsonEnc 文件(JSON)编码器
+		)
+		if cfg.Path != "" {
+			maxSize = cfg.MaxSize
+			if maxSize <= 0 {
+				maxSize = 100
+			}
+			maxAge = cfg.MaxAge
+			if maxAge <= 0 {
+				maxAge = 30
+			}
+			maxBackups = cfg.MaxBackups
+			if maxBackups <= 0 {
+				maxBackups = 10
+			}
+			file = zapcore.AddSync(&lumberjack.Logger{
+				Filename:   cfg.Path,
+				MaxSize:    maxSize,
+				MaxAge:     maxAge,
+				MaxBackups: maxBackups,
+				Compress:   cfg.Compress,
+			})
+			jsonEnc = zapcore.NewJSONEncoder(fileEncCfg)
+			cores = append(cores, zapcore.NewCore(jsonEnc, file, levelEnabler))
 		}
-		maxAge := cfg.MaxAge
-		if maxAge <= 0 {
-			maxAge = 30
-		}
-		maxBackups := cfg.MaxBackups
-		if maxBackups <= 0 {
-			maxBackups = 10
-		}
-		file := zapcore.AddSync(&lumberjack.Logger{
-			Filename:   cfg.Path,
-			MaxSize:    maxSize,
-			MaxAge:     maxAge,
-			MaxBackups: maxBackups,
-			Compress:   cfg.Compress,
-		})
-		jsonEnc := zapcore.NewJSONEncoder(fileEncCfg)
-		cores = append(cores, zapcore.NewCore(jsonEnc, file, levelEnabler))
 	}
 
 	// 5. 兜底: 至少一个核心, 组合多路输出

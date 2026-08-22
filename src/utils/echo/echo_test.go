@@ -39,14 +39,12 @@ func TestJson(t *testing.T) {
 
 	// case: 打印结构体的 JSON 内容
 	out := captureStdout(func() {
-
 		Json(map[string]int{"a": 1})
 	})
 	assert.Contains(t, out, `"a": 1`)
 
 	// case: nil 入参不得 panic, 且打印 "nil"
 	out = captureStdout(func() {
-
 		Json(nil)
 	})
 	assert.Contains(t, out, "nil")
@@ -57,14 +55,12 @@ func TestYml(t *testing.T) {
 
 	// case: 打印 map 的 YAML 内容
 	out := captureStdout(func() {
-
 		Yml(map[string]string{"a": "b"})
 	})
 	assert.Contains(t, out, "a: b")
 
 	// case: 含 xxx_ 的键对应的行应被过滤
 	out = captureStdout(func() {
-
 		Yml(map[string]string{"xxx_pwd": "secret", "name": "ok"})
 	})
 	assert.NotContains(t, out, "xxx_pwd")
@@ -72,7 +68,6 @@ func TestYml(t *testing.T) {
 
 	// case: nil 入参不得 panic, 且打印 "nil"
 	out = captureStdout(func() {
-
 		Yml(nil)
 	})
 	assert.Contains(t, out, "nil")
@@ -83,7 +78,6 @@ func TestDump(t *testing.T) {
 
 	// case: nil 入参不得 panic
 	out := captureStdout(func() {
-
 		Dump(nil)
 	})
 	assert.Contains(t, out, "nil")
@@ -94,28 +88,24 @@ func TestContext(t *testing.T) {
 
 	// case: nil 入参不得 panic, 且打印提示
 	out := captureStdout(func() {
-
 		Context(nil)
 	})
 	assert.Contains(t, out, "Context is nil")
 
-	// case: context.Background(底层为 int 的 emptyCtx) 不得 panic
+	// case: context.Background 不得 panic(go1.21+ 为 backgroundCtx, 旧版为 emptyCtx)
 	out = captureStdout(func() {
-
 		Context(context.Background())
 	})
-	assert.Contains(t, out, "context.emptyCtx")
+	assert.Contains(t, out, "context.")
 
 	// case: 带 value 的 context 链不得 panic
 	out = captureStdout(func() {
-
 		Context(context.WithValue(context.Background(), "k1", "v1"))
 	})
 	assert.Contains(t, out, "context.valueCtx")
 
 	// case: 自定义 context 结构体(含导出字段)不得 panic
 	out = captureStdout(func() {
-
 		Context(&probeCtx{Context: context.Background()})
 	})
 	assert.Contains(t, out, "Context:")
@@ -126,14 +116,12 @@ func TestContextValues(t *testing.T) {
 
 	// case: nil 入参不得 panic
 	out := captureStdout(func() {
-
 		contextValues(nil)
 	})
 	assert.Empty(t, out)
 
 	// case: 非结构体实现(context.Background)不得 panic
 	out = captureStdout(func() {
-
 		contextValues(context.Background())
 	})
 	assert.Empty(t, out)
@@ -141,7 +129,6 @@ func TestContextValues(t *testing.T) {
 	// case: valueCtx 链递归遍历并打印 key 字段
 	// 注: valueCtx 的 key/value 是未导出字段, 未经 unsafe 无法读取真实值, 仅打印类型名
 	out = captureStdout(func() {
-
 		contextValues(context.WithValue(context.WithValue(context.Background(), "k1", "v1"), "k2", "v2"))
 	})
 	assert.Contains(t, out, "key:")

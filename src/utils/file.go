@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"gin-demo/src/pkg/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,12 +117,7 @@ func WriteToFile(filename, content string) (err error) {
 
 	// 涉及文件系统写入, 记录耗时与结果日志
 	defer func(startTime time.Time) {
-
-		if err != nil {
-			logger.Errorf(context.Background(), "WriteToFile FAIL - filename: %v - err: %v - cost: %s", filename, err, time.Since(startTime))
-		} else {
-			logger.Infof(context.Background(), "WriteToFile OK - filename: %v - cost: %s", filename, time.Since(startTime))
-		}
+		LogErrorInfo(context.Background(), startTime, "WriteToFile", err, "filename", filename)
 	}(time.Now())
 
 	// 1. 确保父目录存在
@@ -205,6 +199,8 @@ func cleanPathPrefix(path string) string {
 //   - err: 未找到 go.mod 时返回错误
 func FindProjectRoot() (dir string, err error) {
 
+	var parent string // parent 上一级目录路径, 用于逐级上溯
+
 	// 1. 获取当前工作目录, 从它开始向上查找
 	if dir, err = os.Getwd(); err != nil {
 		return "", err
@@ -215,7 +211,7 @@ func FindProjectRoot() (dir string, err error) {
 		if _, err = os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir, nil
 		}
-		parent := filepath.Dir(dir)
+		parent = filepath.Dir(dir)
 		if parent == dir {
 			return "", fmt.Errorf("FindProjectRoot go.mod not found")
 		}

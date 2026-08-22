@@ -134,8 +134,10 @@ func Context(ctx context.Context) {
 
 	// 使用反射遍历context结构体的所有字段
 	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
+		var (
+			field     = v.Field(i) // field 当前字段值
+			fieldType = t.Field(i) // fieldType 当前字段类型信息
+		)
 
 		// 跳过未导出的字段
 		if !fieldType.IsExported() {
@@ -203,11 +205,13 @@ func contextValues(ctx context.Context) {
 
 	// 查找并打印key和value字段
 	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
+		var (
+			field     = v.Field(i)     // field 当前字段值
+			fieldType = t.Field(i)     // fieldType 当前字段类型信息
+			fieldName = fieldType.Name // fieldName 字段名(未导出时为原始名)
+		)
 
 		// 对于未导出字段，使用小写名称
-		fieldName := fieldType.Name
 		if !fieldType.IsExported() {
 			// 获取原始名称（可能需要使用unsafe包，这里简化处理）
 			fieldName = t.Field(i).Name

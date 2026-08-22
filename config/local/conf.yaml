@@ -22,3 +22,7 @@ Redis:
   idletimeout: 240
   poolsize: 100
   db: 0
+
+Llm:
+  apiKey: "300000189:5e4785b6c5dca7f7f6be82041436c8e5"
+  apiUrl: "http://ai-service-test.tal.com/openai-compatible/v1"

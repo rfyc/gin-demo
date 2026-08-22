@@ -28,7 +28,6 @@ func (Option) Append(db *gorm.DB, dbOpts ...Option) *gorm.DB {
 func (o Option) Where(query interface{}, args ...interface{}) Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		return o(db).Where(query, args...)
 	}
 }
@@ -38,7 +37,6 @@ func (o Option) Where(query interface{}, args ...interface{}) Option {
 func (o Option) Or(query interface{}, args ...interface{}) Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		return o(db).Or(query, args...)
 	}
 }
@@ -48,7 +46,6 @@ func (o Option) Or(query interface{}, args ...interface{}) Option {
 func (o Option) Table(name string, args ...interface{}) Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		return o(db).Table(name, args...)
 	}
 }
@@ -58,7 +55,6 @@ func (o Option) Table(name string, args ...interface{}) Option {
 func (o Option) OrderBy(orderBy interface{}) Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		return o(db).Order(orderBy)
 	}
 }
@@ -68,7 +64,6 @@ func (o Option) OrderBy(orderBy interface{}) Option {
 func (o Option) Limit(limit int) Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		return o(db).Limit(limit)
 	}
 }
@@ -78,7 +73,6 @@ func (o Option) Limit(limit int) Option {
 func (o Option) Page(page, pageSize uint32) Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		if page <= 0 {
 			page = 1
 		}
@@ -93,7 +87,6 @@ func (o Option) Page(page, pageSize uint32) Option {
 func (o Option) Empty() Option {
 
 	return func(db *gorm.DB) *gorm.DB {
-
 		return o(db)
 	}
 }

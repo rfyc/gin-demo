@@ -40,7 +40,6 @@ func newMockDB(t *testing.T) *db.DB {
 	d, err := db.NewMockDB()
 	require.NoError(t, err, "db.NewMockDB FAIL")
 	t.Cleanup(func() {
-
 		d.Close()
 		cleanMockDB(t)
 	})
@@ -97,7 +96,6 @@ func TestMockDBFileCreated(t *testing.T) {
 	d, err := db.NewMockDB()
 	require.NoError(t, err, "db.NewMockDB FAIL")
 	defer func() {
-
 		d.Close()
 		cleanMockDB(t)
 	}()

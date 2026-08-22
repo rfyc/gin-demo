@@ -13,7 +13,6 @@ import (
 	"database/sql"
 	"fmt"
 	"gin-demo/src/core/conf"
-	"gin-demo/src/pkg/logger"
 	"gin-demo/src/utils"
 	"os"
 	"path/filepath"
@@ -172,31 +171,30 @@ func GetContextTx(ctx context.Context) *gorm.DB {
 // 出于安全考虑日志不记录 DSN 全文（可能含密码），仅记录耗时与结果。
 func InitMySQL(dsn string) (db *gorm.DB, err error) {
 
+	var sqlDB *sql.DB // sqlDB 底层数据库连接池句柄
+
 	// 涉及第三方请求(连接 MySQL), 记录耗时与结果日志
 	defer func(startTime time.Time) {
-
-		if err != nil {
-			logger.Errorf(context.Background(), "InitMySQL FAIL - err: %v - cost: %s", err, time.Since(startTime))
-		} else {
-			logger.Infof(context.Background(), "InitMySQL OK - cost: %s", time.Since(startTime))
-		}
+		utils.LogErrorInfo(context.Background(), startTime, "InitMySQL", err)
 	}(time.Now())
 
+	// 1. 打开 MySQL 连接
 	if db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	}); err != nil {
 		return nil, fmt.Errorf("连接 MySQL 主库失败: %w", err)
 	}
 
-	var sqlDB *sql.DB
-	if sqlDB, err = db.DB(); err != nil {
-		return nil, fmt.Errorf("获取 sql.DB 失败: %w", err)
+	// 2. 取出底层连接池并应用连接池参数
+	{
+		if sqlDB, err = db.DB(); err != nil {
+			return nil, fmt.Errorf("获取 sql.DB 失败: %w", err)
+		}
+		sqlDB.SetMaxOpenConns(50)
+		sqlDB.SetMaxIdleConns(10)
+		sqlDB.SetConnMaxLifetime(30 * time.Minute)
+		sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 	}
-
-	sqlDB.SetMaxOpenConns(50)
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetConnMaxLifetime(30 * time.Minute)
-	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	return db, nil
 }
@@ -205,36 +203,40 @@ func InitMySQL(dsn string) (db *gorm.DB, err error) {
 // 连接池限制为单连接，避免 SQLite 单写锁导致的文件锁冲突。
 func InitSQLite() (db *gorm.DB, err error) {
 
-	var path string // SQLite mock 数据库文件的绝对路径
+	var (
+		path  string  // path SQLite mock 数据库文件的绝对路径
+		sqlDB *sql.DB // sqlDB 底层数据库连接池句柄
+	)
 
 	// 涉及第三方请求(打开 SQLite), 记录耗时与结果日志
 	defer func(startTime time.Time) {
-
-		if err != nil {
-			logger.Errorf(context.Background(), "InitSQLite FAIL - path: %v - err: %v - cost: %s", path, err, time.Since(startTime))
-		} else {
-			logger.Infof(context.Background(), "InitSQLite OK - path: %v - cost: %s", path, time.Since(startTime))
-		}
+		utils.LogErrorInfo(context.Background(), startTime, "InitSQLite", err, "path", path)
 	}(time.Now())
 
+	// 1. 定位 mock 数据库文件路径
 	if path, err = GetMockPath(); err != nil {
 		return nil, err
 	}
-	if db, err = gorm.Open(sqlite.Open(path), &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
-	}); err != nil {
-		return nil, fmt.Errorf("打开 SQLite mock 失败 [path=%s]: %w", path, err)
+
+	// 2. 打开 SQLite 并取出底层连接池句柄
+	{
+		if db, err = gorm.Open(sqlite.Open(path), &gorm.Config{
+			Logger: gormlogger.Default.LogMode(gormlogger.Silent),
+		}); err != nil {
+			return nil, fmt.Errorf("打开 SQLite mock 失败 [path=%s]: %w", path, err)
+		}
+		if sqlDB, err = db.DB(); err != nil {
+			return nil, fmt.Errorf("获取 sql.DB 失败: %w", err)
+		}
 	}
 
-	var sqlDB *sql.DB
-	if sqlDB, err = db.DB(); err != nil {
-		return nil, fmt.Errorf("获取 sql.DB 失败: %w", err)
+	// 3. 连接池限制为单连接, 避免 SQLite 单写锁导致的文件锁冲突
+	{
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
+		sqlDB.SetConnMaxLifetime(0)
+		sqlDB.SetConnMaxIdleTime(0)
 	}
-
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
-	sqlDB.SetConnMaxLifetime(0)
-	sqlDB.SetConnMaxIdleTime(0)
 
 	return db, nil
 }
