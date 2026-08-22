@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"gin-demo/schema"
 	"gin-demo/src/pkg/logger"
+	"gin-demo/src/schema"
 
 	"github.com/gin-gonic/gin"
 )

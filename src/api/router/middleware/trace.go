@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"gin-demo/schema"
+	"gin-demo/src/schema"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

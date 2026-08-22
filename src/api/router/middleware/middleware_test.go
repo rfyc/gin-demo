@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"gin-demo/schema"
+	"gin-demo/src/schema"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
