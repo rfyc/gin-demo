@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gin-demo/src/schema"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -28,12 +30,6 @@ type ILogger interface {
 	Printf(format string, v ...any)
 	Print(msg string, keysAndValues ...any)
 }
-
-// contextKey 是 context 中请求ID的私有 key 类型, 避免与其他包 key 冲突。
-type contextKey string
-
-// RequestIDKey 是 context 中存储请求ID的 key。
-const RequestIDKey contextKey = "x_request_id"
 
 // Logger 是 ILogger 的具体实现, 持有多种 zap 日志实例:
 //   - sugar/sugarPkg: 带调用层级偏移的日志, 供方法与包级函数分别使用
@@ -87,7 +83,7 @@ func (l *Logger) withCtx(ctx context.Context, pkg bool) *zap.SugaredLogger {
 	if pkg {
 		s = l.sugarPkg
 	}
-	if rid, ok := ctx.Value(RequestIDKey).(string); ok && rid != "" {
+	if rid, ok := ctx.Value(schema.CTX_TraceIDKey).(string); ok && rid != "" {
 		return s.With("request_id", rid)
 	}
 	return s

@@ -38,12 +38,12 @@ func Logger() gin.HandlerFunc {
 		// 2. 放行请求, 交由后续中间件与业务处理
 		c.Next()
 
-		// 3. 请求结束后统计耗时、状态码与请求ID
+		// 3. 请求结束后统计耗时、状态码与请求ID(从 request context 取, 与业务日志同源)
 		{
 			latency = time.Since(startTime)
 			statusCode = c.Writer.Status()
-			if v, ok := c.Get(schema.CTXTraceKey); ok {
-				requestID = v.(string)
+			if v, ok := c.Request.Context().Value(schema.CTX_TraceIDKey).(string); ok {
+				requestID = v
 			}
 		}
 

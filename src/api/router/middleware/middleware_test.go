@@ -22,16 +22,39 @@ func TestTraceWithHeader(t *testing.T) {
 	r.Use(Trace())
 	r.GET("/", func(c *gin.Context) {
 
-		assert.Equal(t, "fixed-id", c.GetString(schema.CTXTraceKey))
+		assert.Equal(t, "fixed-id", c.GetString(string(schema.CTX_TraceIDKey)))
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set(schema.CTXTraceKey, "fixed-id")
+	req.Header.Set(string(schema.CTX_TraceIDKey), "fixed-id")
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, "fixed-id", w.Header().Get(schema.CTXTraceKey))
+	assert.Equal(t, "fixed-id", w.Header().Get(string(schema.CTX_TraceIDKey)))
+}
+
+// TestTraceRequestContext 覆盖正常场景: trace_id 注入 request context, 供业务日志读取。
+func TestTraceRequestContext(t *testing.T) {
+
+	// case: 业务 handler 从 request context 读取 trace_id, 应与请求头一致
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(Trace())
+	var got string
+	r.GET("/", func(c *gin.Context) {
+
+		got, _ = c.Request.Context().Value(schema.CTX_TraceIDKey).(string)
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(string(schema.CTX_TraceIDKey), "ctx-id")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, "ctx-id", got)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 // TestTraceGenerate 覆盖边界场景: 请求头缺失时自动生成非空 trace_id。
@@ -44,7 +67,7 @@ func TestTraceGenerate(t *testing.T) {
 	var got string
 	r.GET("/", func(c *gin.Context) {
 
-		got = c.GetString(schema.CTXTraceKey)
+		got = c.GetString(string(schema.CTX_TraceIDKey))
 		c.Status(http.StatusOK)
 	})
 
@@ -52,7 +75,7 @@ func TestTraceGenerate(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	assert.NotEmpty(t, got)
-	assert.NotEmpty(t, w.Header().Get(schema.CTXTraceKey))
+	assert.NotEmpty(t, w.Header().Get(string(schema.CTX_TraceIDKey)))
 }
 
 // TestCORSPreflight 覆盖异常场景: OPTIONS 预检请求以 204 终止, 不进入业务 handler。
