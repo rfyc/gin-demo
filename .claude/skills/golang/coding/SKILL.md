@@ -1,5 +1,5 @@
 ---
-name: go-coding
+name: coding
 description: 惯用 Go 模式、最佳实践与强制规范（函数格式、注释、日志、测试），用于构建健壮、高效、可维护的 Go 应用。编写/修改/审查/重构 Go 代码、编写测试、设计 Go 包/模块时调用。
 ---
 
@@ -7,7 +7,7 @@ description: 惯用 Go 模式、最佳实践与强制规范（函数格式、注
 
 构建健壮、高效、可维护应用程序的惯用 Go 模式与最佳实践。
 
-> **规范定位**: 本技能承载项目 Go 代码的强制规范（函数格式、注释、日志）与惯用模式；测试强制规范由 go-testing 承担，本技能仅要求函数对测试友好；CLAUDE.md 不再重复这些规范，仅保留语言输出等全局约定。
+> **规范定位**: 本技能承载项目 Go 代码的强制规范（函数格式、注释、日志）与惯用模式；测试强制规范由 testing 承担，本技能仅要求函数对测试友好；CLAUDE.md 不再重复这些规范，仅保留语言输出等全局约定。
 
 ## 强制规范（必须遵循）
 
@@ -90,11 +90,12 @@ func GetUserOrders(ctx context.Context, userID int64) (orders []*Order, err erro
 	)
 
 	// 涉及第三方请求(数据库/外部服务)的函数, 必须记录处理日志: 耗时, error, 入参出参, 主要参数
+	// 日志统一用项目 src/pkg/logger 包级函数(logger.Infof/logger.Errorf), 自动附加 ctx 中的 request_id
 	defer func(startTime time.Time) {
 		if err != nil {
-			log.Printf("GetUserOrders FAIL - userID: %v - err: %v - cost: %s", userID, err, time.Since(startTime))
+			logger.Errorf(ctx, "GetUserOrders FAIL - userID: %v - err: %v - cost: %s", userID, err, time.Since(startTime))
 		} else {
-			log.Printf("GetUserOrders OK - userID: %v - orderCount: %d - cost: %s", userID, len(orders), time.Since(startTime))
+			logger.Infof(ctx, "GetUserOrders OK - userID: %v - orderCount: %d - cost: %s", userID, len(orders), time.Since(startTime))
 		}
 	}(time.Now())
 

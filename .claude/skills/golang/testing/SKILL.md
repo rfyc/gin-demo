@@ -1,11 +1,11 @@
 ---
-name: go-testing
+name: testing
 description: 项目单元测试规范：新增/修改的代码一律写单元测试，分功能函数与业务函数两种单元测试形式，均用表驱动覆盖正常/边界/异常；依赖打桩用 bytedance/mockey。编写或修改 Go 测试时调用。
 ---
 
 # Go 单元测试
 
-> **规范定位**: 本技能承载项目单元测试的强制规范（两种形式、测试文件位置、表驱动形态、覆盖率验收、依赖 mock）。其他测试手段（基准、模糊、快照等）按需使用；竞态检测由 go-review 的 `go test -race` 承担。
+> **规范定位**: 本技能承载项目单元测试的强制规范（两种形式、测试文件位置、表驱动形态、覆盖率验收、依赖 mock）。其他测试手段（基准、模糊、快照等）按需使用；竞态检测由 review 的 `go test -race` 承担。
 
 ## 单元测试
 
@@ -28,7 +28,7 @@ description: 项目单元测试规范：新增/修改的代码一律写单元测
 针对业务处理函数（handler 背后的业务逻辑，形如 `fn(ctx, request) (response, error)`），直接调用，验证业务逻辑与错误行为：
 
 - 位置：业务函数同目录 `xxx_test.go`（同包）
-- 被测对象：直接调用业务函数（如 `home.Welcome(utils.NewTestContext(), &WelcomeRequest{...})`），**不经过 HTTP 层**；gin 参数绑定与响应逻辑由 go-review 检查，不单独写接口测试
+- 被测对象：直接调用业务函数（如 `home.Welcome(utils.NewTestContext(), &WelcomeRequest{...})`），**不经过 HTTP 层**；gin 参数绑定与响应逻辑由 review 检查，不单独写接口测试
 - 形态：表驱动测试，case 覆盖正常/边界/异常
 
 ### 统一示例（两种形式同一写法）
@@ -111,6 +111,8 @@ func TestFetchUser(t *testing.T) {
 
 ## 测试命令
 
+**验证顺序**（运行 go 命令前先按 where 定位 go 版本）：`go build ./...` → `go vet ./...` → 按下述命令运行本次修改相关包的测试；任一步失败不得视为完成。
+
 **每次修改后验证只运行本次修改相关包的测试，不执行全部测试**：
 - 指定包：`go test ./src/utils/`
 - 指定测试函数：`go test -run TestFileName ./src/utils/`
@@ -133,5 +135,6 @@ go test -cover ./...
 
 ## 补充
 
-- 修复 Bug 时：先按本技能写失败测试复现，修复后重新运行测试确认无回归（与 go-review 配合）
+- 测试完成后：调用 review 对本次变更进行全面审查，修复其发现的问题
+- 修复 Bug 时：先按本技能写失败测试复现，修复后重新运行测试确认无回归（与 review 配合）
 - 辅助机制：测试需要 setup/清理/临时文件时用 `t.Helper()` / `t.Cleanup()` / `t.TempDir()`

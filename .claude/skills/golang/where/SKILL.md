@@ -1,5 +1,5 @@
 ---
-name: go-where
+name: where
 description: 确定当前项目可用的 go 命令路径(与 go.mod 版本一致),并将结果写入 MEMORY.md 供后续引用。激活时机
    需要运行 go 命令(go build/go test/go vet/go mod 等)前, 或询问"go 命令在哪/用什么 go 版本"时。
 ---
